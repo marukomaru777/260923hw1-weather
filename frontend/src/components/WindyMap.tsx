@@ -2,12 +2,16 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Station } from '../types/weather';
+import type { AirQualitySite } from '../types/weather';
 
-export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity';
+export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity' | 'air';
 
 interface WindyMapProps {
   stations: Station[];
+  airQuality: AirQualitySite[];
   currentCity: string;
+  currentTown: string;
+  focusedFavorite: string;
   onSelectCity: (city: string) => void;
   activeLayer: WeatherLayer;
   favorites: string[];
@@ -16,7 +20,10 @@ interface WindyMapProps {
 
 export const WindyMap: React.FC<WindyMapProps> = ({
   stations,
+  airQuality,
   currentCity,
+  currentTown,
+  focusedFavorite,
   onSelectCity,
   activeLayer,
   favorites,
@@ -35,13 +42,13 @@ export const WindyMap: React.FC<WindyMapProps> = ({
         center: [23.8, 120.9],
         zoom: 7.8,
         zoomControl: true,
-        attributionControl: false
+        attributionControl: true
       });
 
-      // CartoDB Dark Matter tile layer (Sleek dark oceanic canvas)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      // Taiwan NLSC e-Map via OGC WMTS: clear local roads, place names and boundaries.
+      L.tileLayer('https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}', {
         maxZoom: 19,
-        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">內政部國土測繪中心</a> 台灣通用電子地圖',
       }).addTo(map);
 
       mapInstanceRef.current = map;
@@ -62,13 +69,50 @@ export const WindyMap: React.FC<WindyMapProps> = ({
 
     markersLayerRef.current.clearLayers();
 
-    const displayStations = onlyFavorites
-      ? stations.filter(s => favorites.some(fav => s.county.includes(fav)))
+    const [focusedCounty, focusedTown] = focusedFavorite.split('|');
+    const matchesFocus = (county: string, town?: string) => !focusedFavorite || (
+      county === focusedCounty && (!focusedTown || (town ? town === focusedTown : true))
+    );
+
+    if (activeLayer === 'air') {
+      const visibleAirSites = airQuality.filter(site => site.lat !== null && site.lng !== null && site.aqi !== null)
+        .filter(site => matchesFocus(site.county))
+        .filter(site => !onlyFavorites || favorites.some(fav => fav.includes('|') ? fav.startsWith(`${site.county}|`) : site.county.includes(fav)))
+      if (focusedFavorite && visibleAirSites.length) {
+        const bounds = L.latLngBounds(visibleAirSites.map(site => [site.lat as number, site.lng as number] as L.LatLngTuple));
+        mapInstanceRef.current.fitBounds(bounds.pad(focusedTown ? 0.8 : 0.12), { maxZoom: focusedTown ? 11 : 9, animate: true });
+      }
+      visibleAirSites.forEach(site => {
+          const value = site.aqi as number;
+          const color = value <= 50 ? '#22c55e' : value <= 100 ? '#eab308' : value <= 150 ? '#f97316' : value <= 200 ? '#ef4444' : value <= 300 ? '#a855f7' : '#78350f';
+          const marker = L.circleMarker([site.lat as number, site.lng as number], {
+            radius: 9, color: '#fff', weight: 2, fillColor: color, fillOpacity: 0.95
+          }).bindTooltip(`${site.site_name} · AQI ${value}`, { direction: 'top' });
+          marker.on('click', () => onSelectCity(site.county));
+          markersLayerRef.current?.addLayer(marker);
+        });
+      return;
+    }
+
+    const displayStations = focusedFavorite
+      ? stations.filter(s => matchesFocus(s.county, s.town))
+      : onlyFavorites
+      ? stations.filter(s => favorites.some(fav => fav.includes('|') ? fav === `${s.county}|${s.town}` : s.county.includes(fav)))
       : stations;
+
+    if (focusedFavorite && displayStations.length) {
+      const bounds = L.latLngBounds(displayStations.map(s => [s.lat, s.lng] as L.LatLngTuple));
+      mapInstanceRef.current.fitBounds(bounds.pad(focusedTown ? 0.8 : 0.12), {
+        maxZoom: focusedTown ? 12 : 9,
+        animate: true
+      });
+    } else if (!focusedFavorite && !onlyFavorites) {
+      mapInstanceRef.current.setView([23.8, 120.9], 7.8, { animate: true });
+    }
 
     displayStations.forEach(s => {
       const isFav = favorites.some(fav => s.county.includes(fav));
-      const isCurrentCity = s.county.includes(currentCity);
+      const isCurrentCity = s.county.includes(currentCity) && (!currentTown || s.town === currentTown);
 
       // Determine badge label and color by active layer
       let label = '';
@@ -143,7 +187,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
 
       // Click to select this city in the Windy panel
       marker.on('click', () => {
-        onSelectCity(s.county);
+        onSelectCity(`${s.county}|${s.town}`);
       });
 
       // Windy-style Popup
@@ -160,7 +204,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
             <div>💧 相對濕度：<strong>${s.humidity ?? '--'}%</strong></div>
           </div>
           <button 
-            onclick="window.dispatchEvent(new CustomEvent('windy-select-city', { detail: '${s.county}' }))"
+            onclick="window.dispatchEvent(new CustomEvent('windy-select-city', { detail: '${s.county}|${s.town}' }))"
             style="
               margin-top: 8px;
               width: 100%;
@@ -182,7 +226,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       marker.bindPopup(popupHtml);
       markersLayerRef.current?.addLayer(marker);
     });
-  }, [stations, activeLayer, favorites, onlyFavorites, currentCity, onSelectCity]);
+  }, [stations, airQuality, activeLayer, favorites, onlyFavorites, currentCity, currentTown, focusedFavorite, onSelectCity]);
 
   // Listen to popup custom event to switch city
   useEffect(() => {

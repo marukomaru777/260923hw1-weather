@@ -10,6 +10,7 @@ interface WindyBottomTimelineProps {
   onSelectCity: (city: string) => void;
   onToggleFavorite: (city: string) => void;
   activeLayer: string;
+  focusedFavorite: string;
 }
 
 export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
@@ -19,7 +20,8 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
   onlyFavorites,
   onSelectCity,
   onToggleFavorite,
-  activeLayer
+  activeLayer,
+  focusedFavorite
 }) => {
   const slots = weather?.forecast_slots || [];
 
@@ -30,8 +32,11 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
     return <Cloud size={16} color="#94A3B8" />;
   };
 
-  const displayedCounties = onlyFavorites
-    ? overviewList.filter(item => favorites.includes(item.city))
+  const focusedCounty = focusedFavorite.split('|')[0];
+  const displayedCounties = focusedFavorite
+    ? overviewList.filter(item => item.city === focusedCounty)
+    : onlyFavorites
+    ? overviewList.filter(item => favorites.includes(item.city) || favorites.some(fav => fav.startsWith(`${item.city}|`)))
     : overviewList;
 
   return (
@@ -89,16 +94,18 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
 
         {/* Windy Color Scale Legend (溫度色階標尺) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#94A3B8' }}>
-          <span>{activeLayer.toUpperCase()} 標尺</span>
+          <span>{activeLayer === 'air' ? 'AQI 標尺' : `${activeLayer.toUpperCase()} 標尺`}</span>
           <div style={{
             display: 'flex',
             height: '8px',
             width: '120px',
             borderRadius: '4px',
             overflow: 'hidden',
-            background: 'linear-gradient(90deg, #38BDF8 0%, #10B981 35%, #F59E0B 70%, #EF4444 100%)'
+            background: activeLayer === 'air'
+              ? 'linear-gradient(90deg, #22c55e 0%, #eab308 25%, #f97316 50%, #ef4444 70%, #a855f7 85%, #78350f 100%)'
+              : 'linear-gradient(90deg, #38BDF8 0%, #10B981 35%, #F59E0B 70%, #EF4444 100%)'
           }} />
-          <span style={{ fontFamily: 'var(--font-mono)' }}>&lt;16° ~ &gt;30°C</span>
+          <span style={{ fontFamily: 'var(--font-mono)' }}>{activeLayer === 'air' ? '0 ~ 300+' : '&lt;16° ~ &gt;30°C'}</span>
         </div>
 
       </div>
@@ -113,7 +120,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
         borderTop: '1px solid rgba(255, 255, 255, 0.08)'
       }}>
         <span style={{ fontSize: '11px', color: '#64748B', whiteSpace: 'nowrap' }}>
-          {onlyFavorites ? '★ 收藏清單' : '全台縣市'}：
+          {focusedFavorite ? '★ 聚焦收藏' : onlyFavorites ? '★ 收藏清單' : '全台縣市'}：
         </span>
 
         {displayedCounties.length === 0 ? (

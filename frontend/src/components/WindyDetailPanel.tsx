@@ -30,6 +30,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { CurrentWeather } from '../types/weather';
+import type { AirQualitySite } from '../types/weather';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
@@ -37,12 +38,16 @@ interface WindyDetailPanelProps {
   weather: CurrentWeather | null;
   isFavorite: boolean;
   onToggleFavorite: (city: string) => void;
+  favoriteId: string;
+  airQuality?: AirQualitySite;
 }
 
 export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
   weather,
   isFavorite,
-  onToggleFavorite
+  onToggleFavorite,
+  favoriteId,
+  airQuality
 }) => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
@@ -139,7 +144,7 @@ export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
             </h2>
             <button
               id="windy-favorite-star-btn"
-              onClick={() => onToggleFavorite(weather.city)}
+              onClick={() => onToggleFavorite(favoriteId)}
               style={{
                 background: isFavorite ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.08)',
                 border: isFavorite ? '1px solid #F59E0B' : '1px solid var(--border-glass)',
@@ -218,6 +223,16 @@ export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
 
           {/* 6 Micro-Metrics Mini Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+            <div style={{ gridColumn: '1 / -1', background: 'rgba(255,255,255,0.04)', padding: '10px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94A3B8' }}>空氣品質{airQuality?.site_name ? ` · ${airQuality.site_name}` : ''}</div>
+                <div style={{ fontSize: '12px', color: '#CBD5E1', marginTop: '3px' }}>{airQuality?.status || (airQuality ? '尚無 AQI 分級' : '尚無監測資料')}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <strong style={{ fontSize: '22px', color: airQuality?.aqi != null && airQuality.aqi <= 50 ? '#22c55e' : airQuality?.aqi != null && airQuality.aqi <= 100 ? '#eab308' : '#94A3B8' }}>{airQuality?.aqi ?? '--'}</strong>
+                <div style={{ fontSize: '10px', color: '#94A3B8' }}>AQI · PM2.5 {airQuality?.pm25 ?? '--'}</div>
+              </div>
+            </div>
             <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '10px', borderRadius: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#94A3B8' }}>
                 <CloudRain size={13} color="#38BDF8" />

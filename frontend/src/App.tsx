@@ -9,10 +9,11 @@ import {
   fetchCurrentWeather,
   fetchCountiesOverview,
   fetchStations,
-  fetchAlerts
+  fetchAlerts,
+  fetchAirQuality
 } from './services/api';
 import { getLocalFavorites, toggleLocalFavorite } from './services/favoritesStorage';
-import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from './types/weather';
+import type { AirQualitySite, CurrentWeather, CountyOverview, Station, WeatherAlert } from './types/weather';
 import { Loader2 } from 'lucide-react';
 
 export const ALL_COUNTIES = [
@@ -23,13 +24,16 @@ export const ALL_COUNTIES = [
 
 export const App: React.FC = () => {
   const [currentCity, setCurrentCity] = useState<string>('臺北市');
+  const [currentTown, setCurrentTown] = useState<string>('');
+  const [focusedFavorite, setFocusedFavorite] = useState<string>('');
   const [activeLayer, setActiveLayer] = useState<WeatherLayer>('temp');
-  
+
   const [currentWeather, setCurrentWeather] = useState<CurrentWeather | null>(null);
   const [overviewList, setOverviewList] = useState<CountyOverview[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
-  
+  const [airQuality, setAirQuality] = useState<AirQualitySite[]>([]);
+
   // Favorites stored in localStorage
   const [favorites, setFavorites] = useState<string[]>(() => getLocalFavorites());
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
@@ -41,14 +45,16 @@ export const App: React.FC = () => {
   const loadGlobalData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [overviewData, stationData, alertData] = await Promise.all([
+      const [overviewData, stationData, alertData, airQualityData] = await Promise.all([
         fetchCountiesOverview(),
         fetchStations(),
-        fetchAlerts()
+        fetchAlerts(),
+        fetchAirQuality()
       ]);
       setOverviewList(overviewData);
       setStations(stationData);
       setAlerts(alertData);
+      setAirQuality(airQualityData);
     } catch (err: any) {
       console.error('Error loading global weather data:', err);
     } finally {
@@ -84,18 +90,60 @@ export const App: React.FC = () => {
   };
 
   const handleSelectCity = (city: string) => {
-    // Normalize city string e.g. "臺北市" or "新竹市"
-    const matched = ALL_COUNTIES.find(c => city.includes(c) || c.includes(city));
-    setCurrentCity(matched || city);
+    const [countyOrTown, town] = city.split('|');
+    const normalized = countyOrTown.replace('台', '臺');
+    if (town) {
+      setCurrentCity(normalized);
+      setCurrentTown(town);
+      return;
+    }
+    const matched = ALL_COUNTIES.find(c => normalized.includes(c) || c.includes(normalized));
+    setCurrentCity(matched || normalized);
+    setCurrentTown('');
   };
+  const handleSelectFavorite = (location: string) => {
+    setFocusedFavorite(location);
+    handleSelectCity(location);
+  };
+  const handleSelectSavedLocation = (location: string) => {
+    if (favorites.includes(location)) handleSelectFavorite(location);
+    else handleSelectCity(location);
+  };
+  const selectedStation = currentTown
+    ? stations.find(station => station.county === currentCity && station.town === currentTown && station.temperature !== null)
+    : undefined;
+  const countyAirSites = airQuality.filter(site => site.county === currentCity && site.aqi !== null);
+  const selectedAirQuality = selectedStation?.lat && selectedStation.lng
+    ? countyAirSites.filter(site => site.lat !== null && site.lng !== null)
+      .sort((a, b) => Math.hypot((a.lat as number) - selectedStation.lat, (a.lng as number) - selectedStation.lng) - Math.hypot((b.lat as number) - selectedStation.lat, (b.lng as number) - selectedStation.lng))[0]
+    : countyAirSites[0];
+  const detailWeather = currentWeather && selectedStation ? {
+    ...currentWeather,
+    city: `${currentCity} ${currentTown}`,
+    station_name: selectedStation.station_name,
+    station_id: selectedStation.station_id,
+    temperature: selectedStation.temperature,
+    humidity: selectedStation.humidity ?? currentWeather.humidity,
+    wind_speed: selectedStation.wind_speed ?? currentWeather.wind_speed,
+    wind_direction: selectedStation.wind_direction ?? currentWeather.wind_direction,
+    pressure: selectedStation.pressure ?? currentWeather.pressure,
+    rain_1h: selectedStation.rain,
+    uv_index: selectedStation.uv_index ?? currentWeather.uv_index,
+    obs_time: selectedStation.obs_time
+  } : currentWeather;
+  const favoriteId = currentTown ? `${currentCity}|${currentTown}` : currentCity;
+  const availableTowns = Array.from(new Set(stations.filter(s => s.county === currentCity && s.town).map(s => s.town))).sort();
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-      
+
       {/* 1. Fullscreen Map Canvas Engine (Windy.com Style) */}
       <WindyMap
         stations={stations}
+        airQuality={airQuality}
         currentCity={currentCity}
+        currentTown={currentTown}
+        focusedFavorite={focusedFavorite}
         onSelectCity={handleSelectCity}
         activeLayer={activeLayer}
         favorites={favorites}
@@ -105,6 +153,14 @@ export const App: React.FC = () => {
       {/* 2. Top-Left Floating Bar: Logo, City Dropdown, Favorite Filter, Quick City Pills */}
       <WindyTopBar
         currentCity={currentCity}
+        currentTown={currentTown}
+        towns={availableTowns}
+        focusedFavorite={focusedFavorite}
+        onClearFocus={() => {
+          setFocusedFavorite('');
+          setOnlyFavorites(false);
+        }}
+        onSelectFavorite={handleSelectFavorite}
         onSelectCity={handleSelectCity}
         counties={ALL_COUNTIES}
         favorites={favorites}
@@ -119,7 +175,7 @@ export const App: React.FC = () => {
 
       {/* 3. Top-Right Floating Alerts Widget (預警在右上) */}
       <WindyAlertsWidget
-        alerts={alerts}
+        alerts={focusedFavorite ? alerts.filter(alert => alert.city === focusedFavorite.split('|')[0]) : alerts}
         onSelectCity={handleSelectCity}
       />
 
@@ -131,9 +187,11 @@ export const App: React.FC = () => {
 
       {/* 5. Left Floating Drawer: Weather Details, Metrics, Mini Chart, Star Favorite */}
       <WindyDetailPanel
-        weather={currentWeather}
-        isFavorite={favorites.includes(currentCity)}
+        weather={detailWeather}
+        isFavorite={favorites.includes(favoriteId)}
         onToggleFavorite={handleToggleFavorite}
+        favoriteId={favoriteId}
+        airQuality={selectedAirQuality}
       />
 
       {/* 6. Bottom Floating Dock: 36h Timeline, Color Scale Legend, City Carousel Strip */}
@@ -142,7 +200,8 @@ export const App: React.FC = () => {
         overviewList={overviewList}
         favorites={favorites}
         onlyFavorites={onlyFavorites}
-        onSelectCity={handleSelectCity}
+        focusedFavorite={focusedFavorite}
+        onSelectCity={handleSelectSavedLocation}
         onToggleFavorite={handleToggleFavorite}
         activeLayer={activeLayer}
       />

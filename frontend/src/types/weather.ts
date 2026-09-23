@@ -69,3 +69,19 @@ export interface WeatherAlert {
   start_time: string;
   end_time: string;
 }
+
+export interface AirQualitySite {
+  site_name: string;
+  county: string;
+  aqi: number | null;
+  status: string;
+  pm25: number | null;
+  pm10: number | null;
+  o3: number | null;
+  co: number | null;
+  so2: number | null;
+  no2: number | null;
+  observed_at: string | null;
+  lat: number | null;
+  lng: number | null;
+}

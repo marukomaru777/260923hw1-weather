@@ -1,5 +1,5 @@
 import React from 'react';
-import { Thermometer, Wind, CloudRain, Droplets } from 'lucide-react';
+import { Thermometer, Wind, CloudRain, Droplets, Wind as AirIcon } from 'lucide-react';
 import type { WeatherLayer } from './WindyMap';
 
 interface WindyLayerPickerProps {
@@ -15,7 +15,8 @@ export const WindyLayerPicker: React.FC<WindyLayerPickerProps> = ({
     { id: 'temp', label: '氣溫', icon: <Thermometer size={18} /> },
     { id: 'wind', label: '風速', icon: <Wind size={18} /> },
     { id: 'rain', label: '雨量', icon: <CloudRain size={18} /> },
-    { id: 'humidity', label: '濕度', icon: <Droplets size={18} /> }
+    { id: 'humidity', label: '濕度', icon: <Droplets size={18} /> },
+    { id: 'air', label: '空品', icon: <AirIcon size={18} /> }
   ];
 
   return (

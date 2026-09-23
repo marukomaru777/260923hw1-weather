@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import weather, forecast, stations, alerts, favorites
+from app.routers import weather, forecast, stations, alerts, favorites, air_quality
 from app.services.cache_service import cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -27,6 +27,7 @@ app.include_router(forecast.router)
 app.include_router(stations.router)
 app.include_router(alerts.router)
 app.include_router(favorites.router)
+app.include_router(air_quality.router)
 
 @app.get("/api/health", tags=["System"])
 async def health_check():

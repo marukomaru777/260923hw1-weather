@@ -1,186 +1,102 @@
-# Design.md
+# Taiwan Environmental Intelligence Platform
 
-## Project Name
-**Taiwan Weather Platform**
-> 即時天氣 × 預報分析 × 地圖視覺化 × 警報通知
+> 台灣環境資訊平台：天氣、空氣品質、降雨、警報與 GIS 視覺化
 
----
+## 產品定位
 
-## Goal
-建立一個可供一般使用者查詢的現代化氣象資訊平台，提供：
-* 即時天氣（觀測站資訊、體感、溫濕度、風速雨量）
-* 未來預報（36 小時縣市預報、一週鄉鎮天氣分析）
-* 降雨資訊（即時雨量、熱區視覺化）
-* 天氣警報（豪大雨、高低溫、颱風等 CWA 特報）
-* 地圖視覺化（Leaflet 互動式測站地圖與降雨圖層）
-* 收藏地區與個人化儀表板（User Dashboard）
+協助使用者快速判斷所在地的天氣與環境風險。首頁以全台互動地圖為主，可切換氣溫、風速、雨量、濕度及空氣品質圖層；點選測站查看即時觀測、預報與環境摘要。縣市與鄉鎮逐層瀏覽、收藏地區及即時警報是主要使用流程。
 
----
+## 使用者需求
 
-## Tech Stack
+- 今天會不會下雨、哪裡正在下大雨？
+- 空氣品質與紫外線狀況如何？
+- 颱風或其他天氣警報會不會影響所在地？
+- 哪些縣市或鄉鎮環境風險較高？
 
-### Frontend
-* **Core & Build**: React 19, TypeScript, Vite
-* **UI & Style**: MUI / Modern CSS Tokens, Lucide Icons
-* **Data Fetching & State**: TanStack Query (React Query)
-* **Visualization & Map**: Leaflet (React-Leaflet), Chart.js
-* **Extra**: PWA, WebSocket
-
-### Backend Options
-* **Option A (推薦研究所 / 企業後端履歷)**: Spring Boot 3 + Java 21 + Spring Data JPA + MySQL + Redis
-* **Option B (快速敏捷 / Python 生態系)**: Django REST Framework (DRF) / FastAPI + Python 3.11+ + MySQL + Redis
-
----
-
-## System Architecture
+## 系統架構
 
 ```text
-       CWA OpenData API (中央氣象署開放資料)
+CWA OpenData ── Weather / Rain / Forecast / Alerts ─┐
+                                                    ├─ Data services + cache
+MOENV OpenData ── AQI / PM2.5 / pollutant readings ┘
                        │
-                       ▼
-             [ Weather Sync Service ]
-        (Scheduled Tasks: 10m / 30m / 6h)
+                 FastAPI REST API
                        │
-                       ▼
-             [ MySQL & Redis Cache ]
+             React + TypeScript + Leaflet
                        │
-                       ▼
-             [ RESTful API Server ]
-            (Auth, Weather, Alert, GIS)
-                       │
-                       ▼
-             [ React 19 Frontend ]
-      (Apple Weather 風格 / 地圖 / 數據儀表板)
+          GIS layers / district detail / favorites
 ```
 
----
+目前實作使用 FastAPI、CWA OpenData、Leaflet、React 與 TypeScript。MOENV API 金鑰由後端環境變數管理；未設定或來源無法使用時，介面應明確呈現資料不可用，不得以虛構數值代替觀測。
 
-## CWA Data Sources (氣象署開放資料平台)
+## GIS 圖層
 
-1. **O-A0003-001**：自動氣象站即時觀測資料（溫度、濕度、氣壓、風速、風向、降雨量，約 10 分鐘更新）
-2. **F-D0047-091**：臺灣各縣市鄉鎮未來 1 週天氣預報（MinT, MaxT, PoP12h, Wx, CI）
-3. **F-C0032-001**：一般天氣預報 - 今明 36 小時天氣預報（全台各縣市 PoP, MinT, MaxT, Wx）
-4. **W-C0033-001**：災害性天氣特報（豪大雨、低溫、大風、濃霧等即時警特報）
+| 圖層 | 資料 | 地圖呈現 |
+|---|---|---|
+| 氣溫 | CWA 測站 | 溫度標籤與色階 |
+| 風速 | CWA 測站 | 風速及風向 |
+| 雨量 | CWA 雨量觀測 | 雨量標籤；後續加入雷達動畫 |
+| 濕度 | CWA 測站 | 濕度標籤 |
+| 空氣品質 | MOENV AQI 監測站 | AQI 標籤與健康風險色階 |
 
----
+AQI 色階：0–50 綠、51–100 黃、101–150 橘、151–200 紅、201–300 紫、301 以上棕。點選站點查看 AQI、PM2.5、PM10、O3、CO、SO2、NO2 與更新時間。
 
-## Database Schema Design (MySQL)
+## 首頁與互動流程
+
+1. 全台地圖顯示主要測站與目前選取圖層數值。
+2. 切換圖層觀察氣溫、風、雨量、濕度或空氣品質。
+3. 選取縣市，再縮放查看鄉鎮或附近測站。
+4. 開啟詳細面板查看溫度、體感、濕度、風速、降雨機率、AQI 與污染物。
+5. 收藏常用地區，並在首頁快速切換。
+6. 查看 CWA 警報與根據可用觀測資料產生的環境摘要。
+
+## 風險與環境摘要
+
+- 體感溫度：以溫度與濕度估算，並標示估算性質。
+- 紫外線：呈現 CWA 觀測或預報值及風險級別。
+- 舒適度：整合溫度、濕度與降雨資訊。
+- 戶外風險摘要：根據即時資料產生規則式提示；資料不足時說明缺少項目。
+- AI 摘要可在資料整合穩定後加入，必須能追溯其引用的觀測與更新時間。
+
+## 資料模型規劃
+
+### air_quality
 
 ```sql
--- 1. 使用者資料表
-CREATE TABLE users (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(100) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    nickname VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. 收藏地區
-CREATE TABLE favorite_locations (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    city VARCHAR(50) NOT NULL,
-    district VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- 3. 氣象測站基本資料
-CREATE TABLE weather_station (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    station_id VARCHAR(20) NOT NULL UNIQUE,
-    station_name VARCHAR(50) NOT NULL,
-    city VARCHAR(50) NOT NULL,
-    district VARCHAR(50),
-    lat DOUBLE NOT NULL,
-    lng DOUBLE NOT NULL
-);
-
--- 4. 測站即時觀測資料
-CREATE TABLE current_weather (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    station_id VARCHAR(20) NOT NULL,
-    temperature DOUBLE,
-    humidity DOUBLE,
-    pressure DOUBLE,
-    wind_speed DOUBLE,
-    wind_direction DOUBLE,
-    rain DOUBLE,
-    update_time DATETIME NOT NULL,
-    INDEX idx_station_time (station_id, update_time)
-);
-
--- 5. 天氣預報資料
-CREATE TABLE forecast (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    location_name VARCHAR(50) NOT NULL,
-    forecast_type VARCHAR(20) DEFAULT '36H', -- '36H' or 'WEEKLY'
-    start_time DATETIME NOT NULL,
-    end_time DATETIME NOT NULL,
-    min_temp DOUBLE,
-    max_temp DOUBLE,
-    rain_probability INT,
-    weather_desc VARCHAR(100),
-    weather_icon VARCHAR(20),
-    INDEX idx_location_time (location_name, start_time)
-);
-
--- 6. 氣象特報
-CREATE TABLE weather_alert (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    alert_code VARCHAR(50),
-    title VARCHAR(100) NOT NULL,
-    description TEXT,
-    severity VARCHAR(20),
-    start_time DATETIME,
-    end_time DATETIME,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE air_quality (
+    id BIGSERIAL PRIMARY KEY,
+    site_name VARCHAR(100) NOT NULL,
+    county VARCHAR(50),
+    aqi INTEGER,
+    pm25 DOUBLE PRECISION,
+    pm10 DOUBLE PRECISION,
+    o3 DOUBLE PRECISION,
+    co DOUBLE PRECISION,
+    so2 DOUBLE PRECISION,
+    no2 DOUBLE PRECISION,
+    observed_at TIMESTAMPTZ,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION
 );
 ```
 
----
+### environment_snapshot
 
-## Main Features & Pages
+整合地區、天氣、空氣品質、雨量、警報、資料來源與更新時間，供前端以單一請求讀取。資料量擴大後採 PostgreSQL + PostGIS，並以空間索引支援附近測站與行政區查詢。
 
-1. **首頁 (Home / Apple Weather 風格)**
-   - 頂部城市切換與搜尋列
-   - 即時溫度、體感溫度、天氣圖標、最高/最低溫
-   - 資訊卡片九宮格：濕度、風速風向、紫外線指數、氣壓、能見度、日出日落
-   - 24 小時逐時微預報條
+## 技術方向
 
-2. **城市搜尋與預報 (Forecast)**
-   - 支援全台縣市/行政區搜尋
-   - 7 天預報折線與柱狀圖（Chart.js）：溫差變化、降雨機率 PoP
-   - 舒適度指數 (CI) 與外出著裝/攜傘建議
+- 前端：React 19、TypeScript、Vite、Leaflet、Chart.js、Lucide。
+- 後端：FastAPI、HTTPX、環境變數管理 API 金鑰、快取服務。
+- 資料來源：中央氣象署 CWA OpenData、環境部 MOENV OpenData。
+- 資料庫：現有階段使用 API 與快取；規劃 PostgreSQL + PostGIS 保存觀測歷史及空間資料。
+- API：REST JSON；後續評估 GeoJSON、OGC API Features 與 SSE 警報推播。
 
-3. **天氣地圖 (Weather & Rain Map)**
-   - 整合 Leaflet + OpenStreetMap 臺灣圖層
-   - 全台氣象測站標記（MarkerCluster），點擊彈出當前即時數據
-   - 降雨熱度圖層（Rainfall Heatmap / Radar overlay）
+## 開發路線
 
-4. **即時天氣特報 (Alerts Banner & Feed)**
-   - 豪大雨、高溫特報即時跑馬燈與獨立警特報頁面
-   - 警報層級徽章標示（黃色注意、橙色警戒、紅色危險）
-
-5. **會員中心與個人化儀表板 (Dashboard)**
-   - JWT 會員註冊 / 登入
-   - 收藏常看縣市（快速切換與桌面 Widget 視圖）
-   - 個人警特報訂閱與設定
-
----
-
-## Bonus Features (面試亮點)
-1. **PWA (Progressive Web App)**：支援離線快取、手機「加入主畫面」如原生 App
-2. **WebSocket / SSE 警報即時推播**：突發豪雨或地震速報即刻推送
-3. **AI 天氣速報 (LLM Summary)**：結合輕量 LLM 根據今日數值自動生成自然語言出門建議
-4. **Redis 快取機制**：針對 CWA API 頻率限制進行快取（10m TTL），大幅提升 API 響應時間至 50ms 內
-
----
-
-## 開發 Roadmap
-* **Phase 1**: 基礎架構與 CWA API 模組串接、首頁即時天氣展示、城市搜尋
-* **Phase 2**: 預報模組、Chart.js 趨勢分析圖表
-* **Phase 3**: Leaflet 測站地圖、雨量視覺化
-* **Phase 4**: 會員系統 (JWT)、收藏城市 Dashboard
-* **Phase 5**: 警特報系統、Redis 快取優化、Docker 容器化部署
+1. 完成現有地圖與氣象站資料體驗、縣市瀏覽、收藏及警報。
+2. 串接環境部空氣品質 API，加入 AQI 圖層與測站詳情。
+3. 加入行政區 drill-down、雨量熱區與雷達影像時間軸。
+4. 整合天氣、空污、降雨與警報快照，改善快取與資料時間標示。
+5. 建置 PostgreSQL/PostGIS、GeoJSON/OGC 查詢與推播。
+6. 加入可追溯資料來源的環境摘要與 PWA 支援。

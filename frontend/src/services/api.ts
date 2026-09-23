@@ -1,4 +1,4 @@
-import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from '../types/weather';
+import type { AirQualitySite, CurrentWeather, CountyOverview, Station, WeatherAlert } from '../types/weather';
 import {
   FALLBACK_OVERVIEW,
   FALLBACK_STATIONS,
@@ -55,8 +55,8 @@ export async function fetchCountiesOverview(): Promise<CountyOverview[]> {
 
 export async function fetchStations(county?: string): Promise<Station[]> {
   try {
-    const url = county 
-      ? `${API_BASE}/stations?county=${encodeURIComponent(county)}` 
+    const url = county
+      ? `${API_BASE}/stations?county=${encodeURIComponent(county)}`
       : `${API_BASE}/stations`;
     const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
@@ -86,4 +86,15 @@ export async function fetchAlerts(): Promise<WeatherAlert[]> {
     // Fallback for GitHub Pages
   }
   return FALLBACK_ALERTS;
+}
+
+export async function fetchAirQuality(): Promise<AirQualitySite[]> {
+  try {
+    const res = await fetch(`${API_BASE}/air-quality`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? [];
+  } catch {
+    return [];
+  }
 }
