@@ -1,32 +1,19 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Taiwan Environment Platform 的 React、TypeScript 與 Vite 前端。功能、資料來源、本機啟動方式、API 路由及 Vercel 設定請見專案根目錄的 [README](../README.md)。
 
-Currently, two official plugins are available:
+## 開發
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Vite 開發模式預設連線到 `http://127.0.0.1:8000` 的 FastAPI 後端。生產環境以 `VITE_API_BASE_URL` 指定後端 origin；此變數只應存放公開的 API 網址，不可放 API key。
+
+## 指令
+
+- `npm run dev`：啟動 Vite 開發伺服器。
+- `npm run build`：執行 TypeScript 專案檢查並建立生產版 `dist/`。
+- `npm run preview`：預覽已建立的生產版。
+- `npm run lint`：執行 Oxlint。
