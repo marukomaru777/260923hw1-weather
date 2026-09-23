@@ -88,7 +88,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
         const town = feature.properties?.TOWNNAME ?? '';
         layer.on('click', () => {
           onSelectCityRef.current(`${county}|${town}`);
-          mapInstanceRef.current?.fitBounds(layer.getBounds().pad(0.15), { maxZoom: 12, animate: true });
+          mapInstanceRef.current?.fitBounds((layer as L.Polyline).getBounds().pad(0.15), { maxZoom: 12, animate: true });
         });
         }
       }).addTo(map);

@@ -1,11 +1,16 @@
 import json
+import os
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/favorites", tags=["Favorites"])
 
-DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "favorites.json"
+if os.getenv("VERCEL"):
+    # Serverless functions can only write to temporary storage; favorites are ephemeral there.
+    DATA_FILE = Path(os.getenv("TMPDIR", "/tmp")) / "favorites.json"
+else:
+    DATA_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "favorites.json"
 DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 DEFAULT_FAVORITES = ["臺北市", "臺中市", "高雄市"]
