@@ -27,7 +27,7 @@ export const App: React.FC = () => {
   const [currentCity, setCurrentCity] = useState<string>('臺北市');
   const [selectedAreaFocusKey, setSelectedAreaFocusKey] = useState(0);
   const [theme, setTheme] = useState<AppTheme>(() =>
-    localStorage.getItem('taiwan-weather-theme') === 'light' ? 'light' : 'dark'
+    localStorage.getItem('taiwan-weather-theme') === 'dark' ? 'dark' : 'light'
   );
   const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
   const [returnToTaiwanKey, setReturnToTaiwanKey] = useState(0);
