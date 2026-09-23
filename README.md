@@ -3,7 +3,7 @@
 台灣即時天氣與地圖平台，整合中央氣象署（CWA）觀測、預報與特報資料，並以 Leaflet 顯示縣市、鄉鎮及測站資訊。
 
 - 線上前端：[frontend-delta-three-29.vercel.app](https://frontend-delta-three-29.vercel.app/)
-- GitHub Repository：[marukomaru777/260923hw1-weather](https://github.com/marukomaru777/260923hw1-weather)
+- GitHub Repository：[marukomaru777/Taiwan-Environment-Platform](https://github.com/marukomaru777/Taiwan-Environment-Platform)
 
 ![Taiwan Environment Platform preview](docs/images/taiwan-environment-platform.png)
 
