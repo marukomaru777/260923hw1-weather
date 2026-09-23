@@ -1,22 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { CountyOverview, Station } from '../types/weather';
+import type { CountyOverview, Station, TyphoonTrack } from '../types/weather';
 import { getWeatherScaleColor, type AppTheme, type WeatherLayer } from '../types/map';
 
 export type { WeatherLayer } from '../types/map';
 
-// Kaohsiung City includes the remote Dongsha and Nansha islands. Their large
-// administrative extent pulls a geometry-bounds center far out into the sea,
-// so anchor the overview label at the urban center on Taiwan proper.
-const COUNTY_LABEL_ANCHORS: Record<string, L.LatLngExpression> = {
+// County geometry centers can land in mountains, offshore areas, or empty
+// parts of large counties. Use each county seat/urban center for map focus.
+const COUNTY_CITY_CENTERS: Record<string, L.LatLngExpression> = {
+  '基隆市': [25.1276, 121.7392],
+  '臺北市': [25.0375, 121.5637],
+  '新北市': [25.0120, 121.4657],
+  '桃園市': [24.9937, 121.3010],
   '新竹市': [24.805, 120.91],
-  '新竹縣': [24.68, 121.03],
-  '嘉義市': [23.49, 120.38],
-  '嘉義縣': [23.42, 120.68],
+  '新竹縣': [24.8380, 121.0170],
+  '苗栗縣': [24.5602, 120.8214],
+  '臺中市': [24.1477, 120.6736],
+  '彰化縣': [24.0746, 120.5422],
+  '南投縣': [23.9150, 120.6840],
+  '雲林縣': [23.7090, 120.4310],
+  '嘉義市': [23.4801, 120.4491],
+  '嘉義縣': [23.4595, 120.2930],
+  '臺南市': [22.9998, 120.2269],
   '高雄市': [22.6273, 120.3014],
-  '金門縣': [24.4400, 118.3180],
-  '宜蘭縣': [24.7570, 121.7530]
+  '屏東縣': [22.6761, 120.4942],
+  '宜蘭縣': [24.7570, 121.7530],
+  '花蓮縣': [23.9872, 121.6015],
+  '臺東縣': [22.7554, 121.1505],
+  '澎湖縣': [23.5711, 119.5793],
+  '金門縣': [24.4320, 118.3170],
+  '連江縣': [26.1606, 119.9490]
 };
 
 const COUNTY_MAINLAND_RADII: Record<string, number> = {
@@ -32,7 +46,7 @@ function getAdministrativeStyle(theme: AppTheme): L.PathOptions {
 }
 
 function isNearCountyLabelAnchor(feature: any, county: string) {
-  const anchor = COUNTY_LABEL_ANCHORS[county];
+  const anchor = COUNTY_CITY_CENTERS[county];
   const mainlandRadius = COUNTY_MAINLAND_RADII[county];
   if (!anchor || mainlandRadius == null) return true;
   const center = L.geoJSON(feature).getBounds().getCenter();
@@ -53,6 +67,12 @@ function getAreaBounds(data: any, county: string, town = '') {
   return bounds;
 }
 
+function focusCountyCenter(map: L.Map, county: string, fallbackBounds?: L.LatLngBounds) {
+  const center = COUNTY_CITY_CENTERS[county];
+  if (center) map.setView(center, 10.5, { animate: true });
+  else if (fallbackBounds?.isValid()) map.setView(fallbackBounds.getCenter(), 10.5, { animate: true });
+}
+
 function getLayerValue(layer: WeatherLayer, station?: Station, overviewTemperature?: number | null) {
   if (layer === 'temp') {
     const value = overviewTemperature ?? station?.temperature;
@@ -61,7 +81,8 @@ function getLayerValue(layer: WeatherLayer, station?: Station, overviewTemperatu
   if (!station) return null;
   if (layer === 'wind') return station.wind_speed == null ? null : { text: `${station.wind_speed}m/s`, color: getWeatherScaleColor(layer, station.wind_speed) };
   if (layer === 'rain') return { text: `${station.rain}mm`, color: getWeatherScaleColor(layer, station.rain) };
-  return station.humidity == null ? null : { text: `${station.humidity}%`, color: getWeatherScaleColor(layer, station.humidity) };
+  if (layer === 'humidity') return station.humidity == null ? null : { text: `${station.humidity}%`, color: getWeatherScaleColor(layer, station.humidity) };
+  return station.uv_index == null ? null : { text: `${station.uv_index}`, color: getWeatherScaleColor(layer, station.uv_index) };
 }
 
 interface WindyMapProps {
@@ -78,6 +99,8 @@ interface WindyMapProps {
   userPosition: { latitude: number; longitude: number } | null;
   returnToTaiwanKey: number;
   selectedAreaFocusKey: number;
+  typhoonTracks: TyphoonTrack[];
+  showTyphoonTracks: boolean;
 }
 
 export const WindyMap: React.FC<WindyMapProps> = ({
@@ -93,12 +116,15 @@ export const WindyMap: React.FC<WindyMapProps> = ({
   theme,
   userPosition,
   returnToTaiwanKey,
-  selectedAreaFocusKey
+  selectedAreaFocusKey,
+  typhoonTracks,
+  showTyphoonTracks
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const userLocationMarkerRef = useRef<L.CircleMarker | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const typhoonLayerRef = useRef<L.LayerGroup | null>(null);
   const adminLayerRef = useRef<L.GeoJSON | null>(null);
   const adminLabelsRef = useRef<L.LayerGroup | null>(null);
   const adminDataRef = useRef<any>(null);
@@ -148,6 +174,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       }).addTo(map);
       adminLabelsRef.current = L.layerGroup().addTo(map);
       markersLayerRef.current = L.layerGroup().addTo(map);
+      typhoonLayerRef.current = L.layerGroup().addTo(map);
     }
 
     return () => {
@@ -192,7 +219,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const bounds = getAreaBounds(data, currentCity, currentTown);
     if (!bounds.isValid()) return;
     if (currentTown) map.fitBounds(bounds.pad(0.8), { maxZoom: 12, animate: true });
-    else map.setView(bounds.getCenter(), 10.5, { animate: true });
+    else focusCountyCenter(map, currentCity, bounds);
   };
   focusSelectedAreaRef.current = focusSelectedAreaOnMap;
 
@@ -267,7 +294,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       const countyWeather = overviewList.find(item => item.city === county);
       const countyStation = stations.find(station => station.county === county);
       const value = getLayerValue(activeLayer, countyStation, countyWeather?.temperature);
-      const labelPosition = COUNTY_LABEL_ANCHORS[county] ?? bounds.getCenter();
+      const labelPosition = COUNTY_CITY_CENTERS[county] ?? bounds.getCenter();
       L.marker(labelPosition, {
         interactive: true,
         pane: 'tooltipPane',
@@ -280,7 +307,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       }).on('click', () => {
         onSelectCityRef.current(county);
         const countyBounds = getAreaBounds(data, county);
-        if (countyBounds.isValid()) map.setView(countyBounds.getCenter(), 10.5, { animate: true });
+        focusCountyCenter(map, county, countyBounds);
       }).addTo(labels);
     });
   };
@@ -294,7 +321,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const bounds = getAreaBounds(data, county, town);
     if (!bounds.isValid()) return;
     if (town) map.fitBounds(bounds.pad(0.8), { maxZoom: 12, animate: true });
-    else map.setView(bounds.getCenter(), 10.5, { animate: true });
+    else focusCountyCenter(map, county, bounds);
   };
   focusFavoriteRef.current = focusFavoriteOnMap;
 
@@ -365,6 +392,9 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       } else if (activeLayer === 'humidity') {
         value = s.humidity;
         label = value !== null ? `${value}%` : '--';
+      } else if (activeLayer === 'uv') {
+        value = s.uv_index;
+        label = value !== null ? `${value}` : '--';
       }
       const badgeColor = getWeatherScaleColor(activeLayer, value);
 
@@ -407,6 +437,79 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       markersLayerRef.current?.addLayer(marker);
     });
   }, [stations, activeLayer, favorites, onlyFavorites, currentCity, currentTown, focusedFavorite, mapZoom, theme]);
+
+  useEffect(() => {
+    const layer = typhoonLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!showTyphoonTracks) return;
+
+    const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char] ?? char));
+    typhoonTracks.forEach(track => {
+      const observed = track.observed ?? [];
+      const forecast = track.forecast ?? [];
+      const toLatLng = (point: typeof observed[number]): L.LatLngExpression => [point.lat, point.lng];
+      const observedCoords = observed.map(toLatLng);
+      const forecastCoords = forecast.map(toLatLng);
+      const name = escapeHtml(track.name || track.international_name || '熱帶氣旋');
+      const label = `${name}${track.international_name ? ` (${escapeHtml(track.international_name)})` : ''}`;
+
+      [...observed, ...forecast].forEach(point => {
+        const future = Boolean(point.is_forecast);
+        const sevenLevelColor = '#38BDF8';
+        if (point.radius_15ms_km && point.radius_15ms_km > 0) {
+          L.circle(toLatLng(point), {
+            radius: Number(point.radius_15ms_km) * 1000,
+            color: sevenLevelColor,
+            weight: 1.5,
+            opacity: 0.8,
+            fillColor: sevenLevelColor,
+            fillOpacity: 0.1,
+            dashArray: future ? '6 5' : undefined,
+            interactive: false
+          }).addTo(layer);
+        }
+        if (point.radius_25ms_km && point.radius_25ms_km > 0) {
+          L.circle(toLatLng(point), {
+            radius: Number(point.radius_25ms_km) * 1000,
+            color: '#A78BFA',
+            weight: 1.5,
+            opacity: 0.92,
+            fillColor: '#A78BFA',
+            fillOpacity: 0.18,
+            dashArray: future ? '6 5' : undefined,
+            interactive: false
+          }).addTo(layer);
+        }
+      });
+
+      if (observedCoords.length > 1) {
+        L.polyline(observedCoords, { color: '#2563EB', weight: 4, opacity: 0.92 }).addTo(layer);
+      }
+      if (forecastCoords.length) {
+        const fullForecastPath = observedCoords.length ? [observedCoords[observedCoords.length - 1], ...forecastCoords] : forecastCoords;
+        if (fullForecastPath.length > 1) {
+          L.polyline(fullForecastPath, { color: '#F97316', weight: 4, opacity: 0.95, dashArray: '9 8' }).addTo(layer);
+        }
+      }
+      observed.forEach((point, index) => {
+        L.circleMarker(toLatLng(point), {
+          radius: index === observed.length - 1 ? 7 : 4,
+          color: '#fff', weight: 2,
+          fillColor: '#2563EB', fillOpacity: 1
+        }).bindTooltip(`${label}｜觀測 ${escapeHtml(point.time || '')}`).addTo(layer);
+      });
+      forecast.forEach(point => {
+        L.circleMarker(toLatLng(point), {
+          radius: 5, color: '#fff', weight: 2,
+          fillColor: '#F97316', fillOpacity: 1
+        }).bindTooltip(`${label}｜預測 ${escapeHtml(point.time || '')}`).addTo(layer);
+      });
+    });
+
+  }, [typhoonTracks, showTyphoonTracks]);
 
   return (
     <div

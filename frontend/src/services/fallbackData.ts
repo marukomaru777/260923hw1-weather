@@ -6837,6 +6837,56 @@ export const FALLBACK_CURRENT_WEATHER: CurrentWeather = {
       "min_temp": 24.0,
       "max_temp": 31.0,
       "comfort_desc": "舒適至悶熱"
+    },
+    {
+      "start_time": "2026-09-25 00:00:00",
+      "end_time": "2026-09-26 00:00:00",
+      "weather_desc": "多雲",
+      "weather_code": "4",
+      "rain_probability": null,
+      "min_temp": 25.0,
+      "max_temp": 30.0,
+      "comfort_desc": "舒適"
+    },
+    {
+      "start_time": "2026-09-26 00:00:00",
+      "end_time": "2026-09-27 00:00:00",
+      "weather_desc": "晴時多雲",
+      "weather_code": "2",
+      "rain_probability": null,
+      "min_temp": 25.0,
+      "max_temp": 31.0,
+      "comfort_desc": "舒適至悶熱"
+    },
+    {
+      "start_time": "2026-09-27 00:00:00",
+      "end_time": "2026-09-28 00:00:00",
+      "weather_desc": "多雲午後短暫雷陣雨",
+      "weather_code": "22",
+      "rain_probability": null,
+      "min_temp": 24.0,
+      "max_temp": 30.0,
+      "comfort_desc": "舒適"
+    },
+    {
+      "start_time": "2026-09-28 00:00:00",
+      "end_time": "2026-09-29 00:00:00",
+      "weather_desc": "晴時多雲",
+      "weather_code": "2",
+      "rain_probability": null,
+      "min_temp": 24.0,
+      "max_temp": 31.0,
+      "comfort_desc": "舒適至悶熱"
+    },
+    {
+      "start_time": "2026-09-29 00:00:00",
+      "end_time": "2026-09-30 00:00:00",
+      "weather_desc": "晴時多雲",
+      "weather_code": "2",
+      "rain_probability": null,
+      "min_temp": 24.0,
+      "max_temp": 30.0,
+      "comfort_desc": "舒適"
     }
   ]
 };

@@ -1,15 +1,20 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import weather, forecast, stations, alerts, favorites, history
+from app.routers import weather, forecast, stations, alerts, favorites, history, typhoon
 from app.services.cache_service import cache
 from app.services.database_service import sqlite_store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+# httpx logs complete request URLs at INFO level, including CWA Authorization
+# query parameters. Keep its request logs quiet so API credentials never enter
+# the application log stream.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 app = FastAPI(
     title="Taiwan Weather Platform API",
-    description="台灣現代化氣象資訊平台 API - 整合中央氣象署 (CWA) 即時觀測、36小時預報、全台測站地圖與即時警報特報",
+    description="台灣環境資訊平台 API - 整合中央氣象署即時觀測、七天天氣預報、全台測站地圖與天氣特報",
     version="1.0.0"
 )
 
@@ -29,6 +34,7 @@ app.include_router(stations.router)
 app.include_router(alerts.router)
 app.include_router(favorites.router)
 app.include_router(history.router)
+app.include_router(typhoon.router)
 
 @app.on_event("startup")
 async def initialize_database():

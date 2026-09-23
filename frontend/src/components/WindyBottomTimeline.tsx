@@ -48,7 +48,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
         gap: '10px'
       }}
     >
-      {/* Upper row: 36h Timeline for current city + Temperature Color Scale */}
+      {/* Upper row: seven-day forecast + active weather color scale */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         
         {/* Forecast Timeline Slots */}
@@ -59,7 +59,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
 
           {slots.map((s, idx) => {
             const d = s.start_time ? new Date(s.start_time) : new Date();
-            const periodStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours() >= 12 ? '晚' : '早'}`;
+            const periodStr = `${d.getMonth() + 1}/${d.getDate()} ${['日', '一', '二', '三', '四', '五', '六'][d.getDay()]}`;
 
             return (
               <div
@@ -79,7 +79,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
                 <span style={{ color: '#94A3B8', fontSize: '11px' }}>{periodStr}</span>
                 {getWeatherIcon(s.weather_desc)}
                 <strong style={{ color: '#FFF' }}>{s.min_temp}°~{s.max_temp}°</strong>
-                <span style={{ color: '#38BDF8', fontSize: '11px' }}>☂ {s.rain_probability}%</span>
+                {s.rain_probability != null && <span style={{ color: '#38BDF8', fontSize: '11px' }}>☂ {s.rain_probability}%</span>}
               </div>
             );
           })}

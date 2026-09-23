@@ -417,7 +417,9 @@ html, body, #root {
 #app-root[data-theme='light'] #windy-bottom-dock > div:first-child > div:last-child {
   color: #475569 !important;
 }
-#app-root[data-theme='light'] #windy-alerts-panel span { color: #334155 !important; }
+#app-root[data-theme='light'] #windy-alerts-panel span,
+#app-root[data-theme='light'] #windy-alerts-panel strong { color: #1e293b !important; }
+#app-root[data-theme='light'] #windy-alerts-panel p { color: #475569 !important; }
 #app-root[data-theme='light'] #windy-alerts-panel button { color: #334155 !important; }
 #app-root[data-theme='light'] .windy-station-marker > div {
   color: #0f172a !important;
@@ -483,15 +485,34 @@ html, body, #root {
 #windy-alerts-panel {
   top: auto !important;
   right: 70px !important;
-  bottom: 112px !important;
+  bottom: 160px !important;
   z-index: 45 !important;
   max-width: calc(100vw - 92px);
+}
+
+#windy-alerts-panel .windy-alert-list {
+  max-height: min(180px, calc(100vh - 310px));
+  overscroll-behavior: contain;
+}
+
+/* Pin the detail drawer between the top controls and the bottom forecast dock. */
+#windy-detail-panel {
+  bottom: 160px !important;
+  max-height: none !important;
 }
 
 @media (max-width: 900px) {
   #windy-detail-panel {
     top: 150px !important;
-    max-height: calc(100vh - 250px) !important;
+    bottom: 245px !important;
+  }
+  #windy-alerts-panel { bottom: 245px !important; }
+}
+
+@media (min-width: 901px) and (max-width: 1200px) {
+  #windy-detail-panel {
+    top: 150px !important;
+    bottom: 160px !important;
   }
 }
 
@@ -585,13 +606,21 @@ html, body, #root {
     left: 8px !important;
     top: 148px !important;
     width: min(360px, calc(100vw - 16px)) !important;
-    max-height: calc(100vh - 245px) !important;
+    bottom: 245px !important;
   }
 
   #windy-top-bar #windy-theme-btn { top: 8px; right: 8px; }
   #windy-alerts-panel {
     right: 62px !important;
-    bottom: 104px !important;
-    max-height: min(180px, calc(100vh - 180px));
+    bottom: 245px !important;
+    max-height: min(230px, calc(100vh - 380px));
   }
+  #windy-alerts-panel .windy-alert-list {
+    max-height: min(132px, calc(100vh - 495px));
+  }
+}
+
+@media (max-height: 560px) and (max-width: 900px) {
+  #windy-detail-panel { top: 130px !important; bottom: 190px !important; }
+  #windy-alerts-panel { bottom: 190px !important; }
 }

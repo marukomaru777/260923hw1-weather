@@ -10,9 +10,10 @@
 ## 功能介紹
 
 - **全台天氣地圖**：呈現縣市天氣與有觀測資料的測站數值。選取縣市或鄉鎮後地圖會聚焦至對應範圍；縣市視角放大至鄉鎮層級，便於查看測站分布。
-- **天氣圖層**：可切換氣溫、風速、雨量與濕度，地圖數值依圖層色階上色，並以有刻度的標尺呈現數值區間。
-- **天氣詳細資料與預報**：選取地區可查看即時天氣觀測與 36 小時預報；地圖底部顯示目前縣市的預報資訊及溫度走勢。
+- **天氣圖層**：可切換氣溫、風速、雨量、濕度與紫外線指數，地圖數值依圖層色階上色，並以有刻度的標尺呈現數值區間。
+- **天氣詳細資料與預報**：選取地區可查看即時天氣觀測與七天天氣預報；地圖底部顯示目前縣市的預報資訊及溫度走勢。
 - **天氣特報**：顯示中央氣象署發布的即時天氣特報。
+- **颱風資訊**：整合颱風警報 CAP 與熱帶氣旋路徑資料；地圖可切換觀測路徑與預測路徑，並顯示 7 級風與 10 級風暴風圈。開啟颱風圖層不會改變預設的全台地圖範圍。
 - **收藏地點**：可收藏縣市或鄉鎮，收藏儲存在瀏覽器 `localStorage`。支援全台與只看收藏兩種顯示模式；收藏下拉選單可聚焦單一收藏地點，不會改變天氣詳細資料或隱藏目前模式中的其他資料。縣市收藏會聚焦至該縣市的鄉鎮層級；地圖測站只會在個別鄉鎮已收藏時顯示收藏星號。
 - **定位與地圖操作**：可授權瀏覽器定位並選取所在縣市，也可按「回到台灣」返回全台檢視；地圖支援縮放。
 - **介面主題**：支援深色／淺色模式切換，深色模式同步切換深色底圖。
@@ -33,30 +34,32 @@
           └─ localStorage 收藏                           └─ SQLite 歷史資料
 ```
 
-前端地圖資料透過 Fetch API 呼叫 FastAPI，使用 JSON 傳輸縣市天氣、36 小時預報、測站觀測與特報。行政區界線由專案內的 `frontend/public/taiwan-townships.geojson` 提供；OpenStreetMap 提供底圖瓦片與地名，不需要地圖 API key。瀏覽器定位使用 Geolocation API，縣市／鄉鎮判斷在本機透過行政區 GeoJSON 點位比對完成。
+前端地圖資料透過 Fetch API 呼叫 FastAPI，使用 JSON 傳輸縣市天氣、七天天氣預報、測站觀測與特報。行政區界線由專案內的 `frontend/public/taiwan-townships.geojson` 提供；OpenStreetMap 提供底圖瓦片與地名，不需要地圖 API key。瀏覽器定位使用 Geolocation API，縣市／鄉鎮判斷在本機透過行政區 GeoJSON 點位比對完成。
 
 ### 技術選型
 
 | 部分 | 技術 |
 | --- | --- |
 | 前端應用 | React 19、TypeScript、Vite 8；Vite 負責開發伺服器與靜態 bundle 建置。 |
-| 地圖 / 視覺化 | Leaflet 顯示 OSM 瓦片與行政區 GeoJSON；Chart.js / `react-chartjs-2` 顯示 36 小時溫度走勢。 |
-| API | Python、FastAPI、Uvicorn、HTTPX；routers 按天氣、預報、測站、特報、收藏與歷史資料拆分。 |
+| 地圖 / 視覺化 | Leaflet 顯示 OSM 瓦片與行政區 GeoJSON；Chart.js / `react-chartjs-2` 顯示七日溫度走勢。 |
+| API | Python、FastAPI、Uvicorn、HTTPX；routers 按天氣、預報、測站、特報、颱風、收藏與歷史資料拆分。 |
 | 儲存 | SQLite 本機保存觀測、預報與特報歷史；API 快取為程序內 TTL cache；前端收藏存於使用者瀏覽器 `localStorage`。 |
 | 部署 | Vercel 以兩個獨立 Project 部署靜態前端與 Python API，透過環境變數連接。 |
 
 ### 地圖與資料呈現
 
-- `WeatherLayer` 定義氣溫、風速、雨量、濕度圖層；`frontend/src/types/map.ts` 集中管理各圖層數值範圍、色階與標尺漸層，確保圖例與測站標記共用同一套色彩映射。
-- 全台模式保留各縣市讀值；收藏模式呈現所有收藏地區。單獨選擇收藏只移動地圖視角，不改變目前詳細資料，也不在該模式中隱藏其他資料。選取縣市時以縣市行政區範圍計算中心，固定聚焦到 zoom 10.5；選取鄉鎮時以鄉鎮 polygon bounds `fitBounds`，最高 zoom 12。計算縣市範圍時會排除高雄等縣市的離島幾何，避免遠端島嶼把本島縮放範圍拉遠。
+- `WeatherLayer` 定義氣溫、風速、雨量、濕度與紫外線圖層；`frontend/src/types/map.ts` 集中管理各圖層數值範圍、色階與標尺漸層，確保圖例與測站標記共用同一套色彩映射。
+- 全台模式保留各縣市讀值；收藏模式呈現所有收藏地區。單獨選擇收藏只移動地圖視角，不改變目前詳細資料，也不在該模式中隱藏其他資料。選取縣市時聚焦至該縣市的市中心位置（zoom 10.5）；選取鄉鎮時以鄉鎮 polygon bounds `fitBounds`，最高 zoom 12。縣市中心採用市區／縣治座標，避免以含偏遠地區或離島的行政區幾何中心造成視角偏移。
 - 全台縮放層級顯示縣市天氣標籤；放大後使用底圖原生鄉鎮地名，避免重複覆蓋名稱，測站讀值仍以獨立 marker 顯示。
-- 測站、預報與特報由不同 API router 提供。前端請求失敗或逾時時會回退至 `frontend/src/services/fallbackData.ts` 的示範資料；因此確認即時資料應查看後端 API 回應與瀏覽器 Network，而不能只依 UI 是否有數值判斷。
+- 測站、預報、特報與颱風路徑由不同 API router 提供。颱風觀測路徑以藍線呈現，預測路徑以橘色虛線呈現；各定位點另繪製 7 級風（15 m/s）及 10 級風（25 m/s）暴風圈。沒有活動系統時不顯示路徑；颱風路徑位於台灣總覽範圍外時仍維持原有總覽縮放，不會自動把地圖移離台灣。前端請求失敗或逾時時會回退至 `frontend/src/services/fallbackData.ts` 的示範資料；因此確認即時資料應查看後端 API 回應與瀏覽器 Network，而不能只依 UI 是否有數值判斷。
 
 ## 資料來源
 
 - CWA `O-A0003-001`：自動氣象站觀測。
-- CWA `F-C0032-001`：36 小時天氣預報。
+- CWA `F-D0047` 縣市週預報資料集：依縣市使用對應資料集取得七天鄉鎮預報，再彙整成縣市每日最高／最低溫度。
 - CWA `W-C0033-001`：天氣特報。
+- CWA `W-C0034-001`：颱風 CAP 警報，併入特報面板。
+- CWA `W-C0034-005`：熱帶氣旋觀測與預測路徑，透過 `/api/typhoon/tracks` 提供前端並在地圖上疊加顯示。
 - OpenStreetMap：地圖底圖。
 - `frontend/public/taiwan-townships.geojson`：縣市與鄉鎮界線。
 
@@ -192,10 +195,11 @@ Vercel Python Function 是按請求執行的 Serverless runtime。程序記憶�
 | `GET` | `/api/health` | 檢查 API 狀態、快取與 SQLite 資訊；不會驗證 CWA 是否成功回傳資料 |
 | `GET` | `/api/weather/current?city=臺北市` | 指定縣市目前天氣與代表測站資料 |
 | `GET` | `/api/weather/overview` | 全台縣市天氣總覽 |
-| `GET` | `/api/forecast/36h?city=臺北市` | 指定縣市 36 小時預報；不帶 `city` 時查詢全部縣市 |
+| `GET` | `/api/forecast/7d?city=臺北市` | 指定縣市七天天氣預報；不帶 `city` 時查詢全部縣市 |
 | `GET` | `/api/stations?county=臺北市` | 查詢測站，可用 `county` 篩選縣市 |
 | `GET` | `/api/stations?county=臺北市&format=geojson` | 以 GeoJSON 回傳測站位置 |
 | `GET` | `/api/alerts` | 天氣特報 |
+| `GET` | `/api/typhoon/tracks` | 目前熱帶氣旋的觀測位置與預測路徑（CWA `W-C0034-005`） |
 | `GET` | `/api/favorites` | 後端收藏清單 API（目前前端改用 `localStorage`） |
 | `POST` | `/api/favorites` | 新增後端收藏，JSON body：`{"city":"臺北市"}` |
 | `DELETE` | `/api/favorites/{city}` | 移除後端收藏 |

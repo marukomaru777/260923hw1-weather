@@ -18,8 +18,10 @@ async def get_counties_overview():
     Get current temperature and weather summary for all 22 counties in Taiwan
     """
     try:
-        # Fetch all 36h forecasts
-        forecasts = await cwa_service.get_36h_forecast()
+        # Fetch the seven-day forecast for each county.
+        forecasts = await cwa_service.get_7d_forecast()
+        short_forecasts = await cwa_service.get_short_term_summary()
+        short_by_county = {forecast.get("city"): forecast for forecast in short_forecasts}
         stations = await cwa_service.get_current_stations()
         
         station_by_county = {}
@@ -32,6 +34,8 @@ async def get_counties_overview():
         for fc in forecasts:
             c_name = fc.get("city", "")
             first_slot = fc.get("forecasts", [{}])[0] if fc.get("forecasts") else {}
+            short_slots = short_by_county.get(c_name, {}).get("forecasts", [])
+            short_slot = short_slots[0] if short_slots else {}
             st = station_by_county.get(c_name)
 
             temp = st.get("temperature") if st else first_slot.get("max_temp")
@@ -42,7 +46,7 @@ async def get_counties_overview():
                 "max_temp": first_slot.get("max_temp"),
                 "weather_desc": first_slot.get("weather_desc", "多雲"),
                 "weather_code": first_slot.get("weather_code", "1"),
-                "rain_probability": first_slot.get("rain_probability", 0),
+                "rain_probability": short_slot.get("rain_probability", 0),
                 "comfort_desc": first_slot.get("comfort_desc", "")
             })
 

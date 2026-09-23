@@ -1,4 +1,4 @@
-export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity';
+export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity' | 'uv';
 export type AppTheme = 'dark' | 'light';
 
 interface ColorStop {
@@ -54,6 +54,17 @@ export const WEATHER_LAYER_SCALES: Record<WeatherLayer, WeatherScale> = {
       { position: 0, color: '#F59E0B' },
       { position: 0.5, color: '#38BDF8' },
       { position: 1, color: '#A78BFA' }
+    ]
+  },
+  uv: {
+    label: '紫外線', min: 0, max: 11, range: '0 ~ 11+',
+    ticks: [0, 3, 6, 8, 11].map(value => ({ value, label: value === 11 ? '11+' : `${value}` })),
+    stops: [
+      { position: 0, color: '#22C55E' },
+      { position: 0.27, color: '#EAB308' },
+      { position: 0.55, color: '#F97316' },
+      { position: 0.73, color: '#EF4444' },
+      { position: 1, color: '#8B5CF6' }
     ]
   }
 };

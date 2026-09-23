@@ -46,6 +46,7 @@ export const WindyAlertsWidget: React.FC<WindyAlertsWidgetProps> = ({
         right: '20px',
         zIndex: 50,
         width: '310px',
+        maxHeight: 'calc(100vh - 170px)',
         padding: '12px 14px',
         borderLeft: '4px solid #EF4444',
         display: 'flex',
@@ -80,11 +81,10 @@ export const WindyAlertsWidget: React.FC<WindyAlertsWidgetProps> = ({
 
       {/* Expanded Alert Items */}
       {isExpanded && (
-        <div style={{
+        <div className="windy-alert-list" style={{
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          maxHeight: '220px',
           overflowY: 'auto',
           marginTop: '4px',
           paddingRight: '2px'
@@ -103,7 +103,7 @@ export const WindyAlertsWidget: React.FC<WindyAlertsWidgetProps> = ({
                 <span style={{ fontSize: '12px', fontWeight: 800, color: '#FCA5A5' }}>
                   {alert.title}
                 </span>
-                <button
+                {alert.city !== '全台' && <button
                   className="windy-btn"
                   onClick={() => onSelectCity(alert.city)}
                   style={{
@@ -115,7 +115,7 @@ export const WindyAlertsWidget: React.FC<WindyAlertsWidgetProps> = ({
                 >
                   <MapPin size={10} color="#38BDF8" />
                   <span>{alert.city}</span>
-                </button>
+                </button>}
               </div>
 
               <p style={{

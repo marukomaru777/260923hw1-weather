@@ -9,10 +9,11 @@ import {
   fetchCurrentWeather,
   fetchCountiesOverview,
   fetchStations,
-  fetchAlerts
+  fetchAlerts,
+  fetchTyphoonTracks
 } from './services/api';
 import { getLocalFavorites, toggleLocalFavorite } from './services/favoritesStorage';
-import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from './types/weather';
+import type { CurrentWeather, CountyOverview, Station, WeatherAlert, TyphoonTrack } from './types/weather';
 import type { AppTheme, WeatherLayer } from './types/map';
 import { findTaiwanAdministrativeArea } from './services/reverseGeocode';
 import { Loader2 } from 'lucide-react';
@@ -41,6 +42,9 @@ export const App: React.FC = () => {
   const [overviewList, setOverviewList] = useState<CountyOverview[]>([]);
   const [stations, setStations] = useState<Station[]>([]);
   const [alerts, setAlerts] = useState<WeatherAlert[]>([]);
+  const [typhoonTracks, setTyphoonTracks] = useState<TyphoonTrack[]>([]);
+  const [typhoonFeedStatus, setTyphoonFeedStatus] = useState<'loading' | 'active' | 'none' | 'unavailable'>('loading');
+  const [showTyphoonTracks, setShowTyphoonTracks] = useState(true);
 
   // Favorites stored in localStorage
   const [favorites, setFavorites] = useState<string[]>(() => getLocalFavorites());
@@ -57,14 +61,17 @@ export const App: React.FC = () => {
   const loadGlobalData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [overviewData, stationData, alertData] = await Promise.all([
+      const [overviewData, stationData, alertData, typhoonData] = await Promise.all([
         fetchCountiesOverview(),
         fetchStations(),
-        fetchAlerts()
+        fetchAlerts(),
+        fetchTyphoonTracks()
       ]);
       setOverviewList(overviewData);
       setStations(stationData);
       setAlerts(alertData);
+      setTyphoonTracks(typhoonData.tracks);
+      setTyphoonFeedStatus(!typhoonData.available ? 'unavailable' : typhoonData.tracks.length ? 'active' : 'none');
     } catch (err: any) {
       console.error('Error loading global weather data:', err);
     } finally {
@@ -202,6 +209,8 @@ export const App: React.FC = () => {
         userPosition={userPosition}
         returnToTaiwanKey={returnToTaiwanKey}
         selectedAreaFocusKey={selectedAreaFocusKey}
+        typhoonTracks={typhoonTracks}
+        showTyphoonTracks={showTyphoonTracks}
       />
 
       {/* 2. Top-Left Floating Bar: Logo, City Dropdown, Favorite Filter, Quick City Pills */}
@@ -252,6 +261,10 @@ export const App: React.FC = () => {
       <WindyLayerPicker
         activeLayer={activeLayer}
         onLayerChange={setActiveLayer}
+        showTyphoonTracks={showTyphoonTracks}
+        onToggleTyphoonTracks={() => setShowTyphoonTracks(value => !value)}
+        typhoonCount={typhoonTracks.length}
+        typhoonFeedStatus={typhoonFeedStatus}
       />
 
       {/* 5. Left Floating Drawer: Weather Details, Metrics, Mini Chart, Star Favorite */}
@@ -262,7 +275,7 @@ export const App: React.FC = () => {
         favoriteId={favoriteId}
       />
 
-      {/* 6. Bottom Floating Dock: 36h Timeline, Color Scale Legend, City Carousel Strip */}
+      {/* 6. Bottom Floating Dock: seven-day timeline, color scale and county carousel */}
       <WindyBottomTimeline
         weather={currentWeather}
         overviewList={overviewList}

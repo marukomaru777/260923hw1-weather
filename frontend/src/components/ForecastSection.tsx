@@ -50,7 +50,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({ slots, city })
   const labels = slots.map((s, idx) => formatPeriodTitle(s.start_time, idx));
   const maxTemps = slots.map(s => s.max_temp ?? 0);
   const minTemps = slots.map(s => s.min_temp ?? 0);
-  const popRates = slots.map(s => s.rain_probability);
+  const popRates = slots.map(s => s.rain_probability ?? null);
 
   // Line Chart Data (Temperature)
   const tempChartData = {
@@ -135,7 +135,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({ slots, city })
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
           <Calendar size={20} color="var(--accent-blue)" />
           <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#FFF' }}>
-            {city} 今明 36 小時時段預報
+            {city} 未來 7 天天氣預報
           </h2>
         </div>
 
@@ -170,7 +170,7 @@ export const ForecastSection: React.FC<ForecastSectionProps> = ({ slots, city })
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#38BDF8', fontSize: '16px', fontWeight: 700 }}>
                     <CloudRain size={16} />
-                    <span>{s.rain_probability}%</span>
+                    <span>{s.rain_probability == null ? '—' : `${s.rain_probability}%`}</span>
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>降雨機率</div>
                 </div>

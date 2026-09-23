@@ -59,11 +59,25 @@ export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
   };
 
   // Mini Chart Data
-  const slots = weather.forecast_slots || [];
+  const forecastByDay = new Map<string, (typeof weather.forecast_slots)[number]>();
+  (weather.forecast_slots || []).forEach((slot, index) => {
+    const dayKey = slot.start_time?.slice(0, 10) || `day-${index}`;
+    const previous = forecastByDay.get(dayKey);
+    if (!previous) {
+      forecastByDay.set(dayKey, { ...slot });
+      return;
+    }
+    forecastByDay.set(dayKey, {
+      ...previous,
+      min_temp: slot.min_temp == null ? previous.min_temp : previous.min_temp == null ? slot.min_temp : Math.min(previous.min_temp, slot.min_temp),
+      max_temp: slot.max_temp == null ? previous.max_temp : previous.max_temp == null ? slot.max_temp : Math.max(previous.max_temp, slot.max_temp),
+      rain_probability: slot.rain_probability == null ? previous.rain_probability : Math.max(previous.rain_probability ?? 0, slot.rain_probability)
+    });
+  });
+  const slots = Array.from(forecastByDay.entries()).sort(([a], [b]) => a.localeCompare(b)).slice(0, 7).map(([, slot]) => slot);
   const labels = slots.map((s, idx) => {
-    if (!s.start_time) return `${idx + 1}`;
-    const d = new Date(s.start_time);
-    return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours() >= 12 ? '晚' : '日'}`;
+    const d = s.start_time ? new Date(`${s.start_time.slice(0, 10)}T00:00:00`) : null;
+    return d && !Number.isNaN(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}` : `${idx + 1}日`;
   });
   const maxTemps = slots.map(s => s.max_temp ?? 0);
   const minTemps = slots.map(s => s.min_temp ?? 0);
@@ -107,7 +121,7 @@ export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
       }
     },
     scales: {
-      x: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { display: false } },
+      x: { ticks: { color: '#94A3B8', font: { size: 9 }, autoSkip: false, maxRotation: 0, minRotation: 0 }, grid: { display: false } },
       y: { ticks: { color: '#94A3B8', font: { size: 10 } }, grid: { color: 'rgba(255, 255, 255, 0.05)' } }
     }
   };
@@ -284,7 +298,7 @@ export const WindyDetailPanel: React.FC<WindyDetailPanelProps> = ({
           {/* Mini Meteogram Chart */}
           <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '12px', borderRadius: '10px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', marginBottom: '8px' }}>
-              氣溫走勢圖 (36h Meteogram)
+              七日氣溫走勢
             </div>
             <div style={{ height: '110px' }}>
               <Line data={miniChartData} options={miniChartOptions} />

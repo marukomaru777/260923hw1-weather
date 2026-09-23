@@ -1,4 +1,4 @@
-import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from '../types/weather';
+import type { CurrentWeather, CountyOverview, Station, WeatherAlert, TyphoonTrack } from '../types/weather';
 import {
   FALLBACK_OVERVIEW,
   FALLBACK_STATIONS,
@@ -87,4 +87,19 @@ export async function fetchAlerts(): Promise<WeatherAlert[]> {
     // Fallback for GitHub Pages
   }
   return FALLBACK_ALERTS;
+}
+
+export async function fetchTyphoonTracks(): Promise<{ tracks: TyphoonTrack[]; available: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/typhoon/tracks`, {
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return { tracks: json.data ?? [], available: true };
+    }
+  } catch {
+    // The UI distinguishes an unavailable feed from a feed with no active systems.
+  }
+  return { tracks: [], available: false };
 }
