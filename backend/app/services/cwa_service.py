@@ -5,6 +5,7 @@ import httpx
 
 from app.config import CWA_API_KEY, CWA_BASE_URL, CACHE_TTL_SECONDS
 from app.services.cache_service import cache
+from app.services.database_service import sqlite_store
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ class CWAService:
                 if lat != 0.0 and lng != 0.0:
                     stations.append(station_clean)
 
+            sqlite_store.save_weather_observations(stations)
             cache.set(cache_key, stations, ttl=CACHE_TTL_SECONDS)
             return stations
         except Exception as e:
@@ -171,6 +173,7 @@ class CWAService:
                 "forecasts": time_slots
             })
 
+        sqlite_store.save_forecasts(results)
         cache.set(cache_key, results, ttl=CACHE_TTL_SECONDS)
         return results
 
@@ -204,6 +207,7 @@ class CWAService:
                         "end_time": valid.get("endTime", "")
                     })
 
+            sqlite_store.save_alerts(alerts)
             cache.set(cache_key, alerts, ttl=300) # 5 min TTL
             return alerts
         except Exception as e:

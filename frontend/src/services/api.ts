@@ -1,4 +1,4 @@
-import type { AirQualitySite, CurrentWeather, CountyOverview, Station, WeatherAlert } from '../types/weather';
+import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from '../types/weather';
 import {
   FALLBACK_OVERVIEW,
   FALLBACK_STATIONS,
@@ -6,7 +6,8 @@ import {
   FALLBACK_CURRENT_WEATHER
 } from './fallbackData';
 
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '');
+const API_BASE = `${API_ORIGIN || (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '')}/api`;
 
 export async function fetchCurrentWeather(city: string): Promise<CurrentWeather> {
   try {
@@ -18,7 +19,7 @@ export async function fetchCurrentWeather(city: string): Promise<CurrentWeather>
       return json.data;
     }
   } catch {
-    // Fallback when deployed on GitHub Pages or backend offline
+    // Use bundled sample data when the API is unavailable.
   }
 
   const norm = city.replace('台', '臺');
@@ -48,7 +49,7 @@ export async function fetchCountiesOverview(): Promise<CountyOverview[]> {
       return json.data;
     }
   } catch {
-    // Fallback for GitHub Pages
+    // Use bundled sample data when the API is unavailable.
   }
   return FALLBACK_OVERVIEW;
 }
@@ -64,7 +65,7 @@ export async function fetchStations(county?: string): Promise<Station[]> {
       return json.data;
     }
   } catch {
-    // Fallback for GitHub Pages
+    // Use bundled sample data when the API is unavailable.
   }
   if (county) {
     const norm = county.replace('台', '臺');
@@ -86,15 +87,4 @@ export async function fetchAlerts(): Promise<WeatherAlert[]> {
     // Fallback for GitHub Pages
   }
   return FALLBACK_ALERTS;
-}
-
-export async function fetchAirQuality(): Promise<AirQualitySite[]> {
-  try {
-    const res = await fetch(`${API_BASE}/air-quality`, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.data ?? [];
-  } catch {
-    return [];
-  }
 }

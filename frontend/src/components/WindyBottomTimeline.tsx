@@ -6,22 +6,18 @@ interface WindyBottomTimelineProps {
   weather: CurrentWeather | null;
   overviewList: CountyOverview[];
   favorites: string[];
-  onlyFavorites: boolean;
   onSelectCity: (city: string) => void;
   onToggleFavorite: (city: string) => void;
   activeLayer: string;
-  focusedFavorite: string;
 }
 
 export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
   weather,
   overviewList,
   favorites,
-  onlyFavorites,
   onSelectCity,
   onToggleFavorite,
-  activeLayer,
-  focusedFavorite
+  activeLayer
 }) => {
   const slots = weather?.forecast_slots || [];
 
@@ -32,12 +28,14 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
     return <Cloud size={16} color="#94A3B8" />;
   };
 
-  const focusedCounty = focusedFavorite.split('|')[0];
-  const displayedCounties = focusedFavorite
-    ? overviewList.filter(item => item.city === focusedCounty)
-    : onlyFavorites
-    ? overviewList.filter(item => favorites.includes(item.city) || favorites.some(fav => fav.startsWith(`${item.city}|`)))
-    : overviewList;
+  const displayedCounties = overviewList.filter(item => item.city === weather?.city);
+  const layerLegend: Record<string, { title: string; range: string; gradient: string }> = {
+    temp: { title: '溫度', range: '<16°C ~ >30°C', gradient: 'linear-gradient(90deg, #38BDF8 0%, #10B981 35%, #F59E0B 70%, #EF4444 100%)' },
+    wind: { title: '風速', range: '0 ~ 20 m/s', gradient: 'linear-gradient(90deg, #38BDF8 0%, #3B82F6 50%, #A78BFA 100%)' },
+    rain: { title: '雨量', range: '0 ~ 50 mm', gradient: 'linear-gradient(90deg, #64748B 0%, #38BDF8 45%, #2563EB 100%)' },
+    humidity: { title: '濕度', range: '0 ~ 100%', gradient: 'linear-gradient(90deg, #F59E0B 0%, #38BDF8 50%, #A78BFA 100%)' }
+  };
+  const legend = layerLegend[activeLayer] ?? layerLegend.temp;
 
   return (
     <div
@@ -94,18 +92,16 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
 
         {/* Windy Color Scale Legend (溫度色階標尺) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#94A3B8' }}>
-          <span>{activeLayer === 'air' ? 'AQI 標尺' : `${activeLayer.toUpperCase()} 標尺`}</span>
+          <span>{`${legend.title}標尺`}</span>
           <div style={{
             display: 'flex',
             height: '8px',
             width: '120px',
             borderRadius: '4px',
             overflow: 'hidden',
-            background: activeLayer === 'air'
-              ? 'linear-gradient(90deg, #22c55e 0%, #eab308 25%, #f97316 50%, #ef4444 70%, #a855f7 85%, #78350f 100%)'
-              : 'linear-gradient(90deg, #38BDF8 0%, #10B981 35%, #F59E0B 70%, #EF4444 100%)'
+            background: legend.gradient
           }} />
-          <span style={{ fontFamily: 'var(--font-mono)' }}>{activeLayer === 'air' ? '0 ~ 300+' : '&lt;16° ~ &gt;30°C'}</span>
+          <span style={{ fontFamily: 'var(--font-mono)' }}>{legend.range}</span>
         </div>
 
       </div>
@@ -120,7 +116,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
         borderTop: '1px solid rgba(255, 255, 255, 0.08)'
       }}>
         <span style={{ fontSize: '11px', color: '#64748B', whiteSpace: 'nowrap' }}>
-          {focusedFavorite ? '★ 聚焦收藏' : onlyFavorites ? '★ 收藏清單' : '全台縣市'}：
+          目前縣市：
         </span>
 
         {displayedCounties.length === 0 ? (

@@ -1,8 +1,9 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import weather, forecast, stations, alerts, favorites, air_quality
+from app.routers import weather, forecast, stations, alerts, favorites, history
 from app.services.cache_service import cache
+from app.services.database_service import sqlite_store
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
@@ -27,14 +28,19 @@ app.include_router(forecast.router)
 app.include_router(stations.router)
 app.include_router(alerts.router)
 app.include_router(favorites.router)
-app.include_router(air_quality.router)
+app.include_router(history.router)
+
+@app.on_event("startup")
+async def initialize_database():
+    sqlite_store.initialize()
 
 @app.get("/api/health", tags=["System"])
 async def health_check():
     return {
         "status": "online",
         "service": "Taiwan Weather Platform API",
-        "cache": cache.get_info()
+        "cache": cache.get_info(),
+        "database": sqlite_store.status()
     }
 
 if __name__ == "__main__":

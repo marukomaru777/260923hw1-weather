@@ -1,9 +1,11 @@
 import React from 'react';
 import { Wind, MapPin, RefreshCw, Star } from 'lucide-react';
+import type { CurrentWeather } from '../types/weather';
 
 interface WindyTopBarProps {
   currentCity: string;
   currentTown: string;
+  weather: CurrentWeather | null;
   towns: string[];
   focusedFavorite: string;
   onClearFocus: () => void;
@@ -20,6 +22,7 @@ interface WindyTopBarProps {
 export const WindyTopBar: React.FC<WindyTopBarProps> = ({
   currentCity,
   currentTown,
+  weather,
   towns,
   focusedFavorite,
   onClearFocus,
@@ -86,7 +89,7 @@ export const WindyTopBar: React.FC<WindyTopBarProps> = ({
           aria-label="選擇鄉鎮市區"
           value={currentTown}
           onChange={e => onSelectCity(e.target.value ? `${currentCity}|${e.target.value}` : currentCity)}
-          style={{ background: 'transparent', border: 'none', color: '#F8FAFC', fontSize: '13px', fontWeight: 700, outline: 'none', cursor: 'pointer', fontFamily: 'inherit', maxWidth: '130px' }}
+            style={{ background: 'transparent', border: 'none', color: '#F8FAFC', fontSize: '13px', fontWeight: 700, outline: 'none', cursor: 'pointer', fontFamily: 'inherit', maxWidth: '130px' }}
         >
           <option value="" style={{ background: '#0F172A' }}>全部鄉鎮</option>
           {towns.map(town => <option key={town} value={town} style={{ background: '#0F172A' }}>{town}</option>)}
@@ -120,11 +123,16 @@ export const WindyTopBar: React.FC<WindyTopBarProps> = ({
           }}
         >
           {counties.map(c => (
-            <option key={c} value={c} style={{ background: '#0F172A', color: '#F8FAFC' }}>
+              <option key={c} value={c} style={{ background: '#0F172A', color: '#F8FAFC' }}>
               {c}
             </option>
           ))}
         </select>
+        <div className="current-weather-chip" aria-label="目前地區天氣">
+          <strong>{weather?.temperature == null ? '--' : `${Math.round(weather.temperature)}°`}</strong>
+          <span>{weather?.weather_desc ?? '載入中'}</span>
+          <small>體感 {weather?.feels_like == null ? '--' : `${Math.round(weather.feels_like)}°`}</small>
+        </div>
       </div>
 
       {/* Favorite Toggle Button */}

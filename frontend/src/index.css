@@ -13,8 +13,8 @@
   --windy-emerald: #10B981;
 
   --bg-dark: #0B111E;
-  --bg-dock: rgba(15, 23, 42, 0.82);
-  --bg-dock-hover: rgba(30, 41, 59, 0.92);
+  --bg-dock: rgba(15, 23, 42, 0.88);
+  --bg-dock-hover: rgba(30, 41, 59, 0.96);
   --bg-glass-card: rgba(255, 255, 255, 0.05);
 
   --border-glass: rgba(255, 255, 255, 0.12);
@@ -158,7 +158,100 @@ html, body, #root {
   width: 100% !important;
   height: 100% !important;
   font-family: var(--font-main) !important;
-  background: #060B14 !important;
+  background: #252629 !important;
+}
+
+.osm-dark-basemap {
+  filter: invert(0.88) hue-rotate(180deg) brightness(0.94) contrast(1.2) saturate(0.9);
+}
+
+.admin-area-label {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: max-content !important;
+  height: auto !important;
+  background: transparent !important;
+  border: 0 !important;
+  pointer-events: auto !important;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.admin-area-label span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  display: block;
+  cursor: pointer;
+  padding: 4px 9px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  background: rgba(22, 27, 35, 0.94);
+  color: #e2e8f0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-shadow: none;
+  box-shadow: 0 2px 9px rgba(0, 0, 0, 0.48);
+}
+
+.county-label span {
+  padding: 5px 11px;
+  color: #f1f5f9;
+  border-color: rgba(148, 163, 184, 0.55);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.town-label span {
+  padding: 2px 6px;
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.admin-area-label strong {
+  color: #67d7ca;
+  font-size: 0.94em;
+  font-weight: 800;
+}
+
+.admin-area-label.selected span {
+  border-color: #67d7ca;
+  box-shadow: 0 0 0 2px rgba(103, 215, 202, 0.22), 0 3px 11px rgba(0, 0, 0, 0.55);
+}
+
+.current-weather-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding-left: 11px;
+  margin-left: 3px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  white-space: nowrap;
+}
+
+.current-weather-chip strong {
+  color: #67d7ca;
+  font-family: var(--font-mono);
+  font-size: 17px;
+}
+
+.current-weather-chip span {
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.current-weather-chip small {
+  color: #94a3b8;
+  font-size: 10px;
 }
 
 .leaflet-control-zoom {
@@ -168,14 +261,112 @@ html, body, #root {
 }
 
 .leaflet-control-zoom a {
-  background: rgba(15, 23, 42, 0.85) !important;
-  color: #FFF !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  backdrop-filter: blur(12px) !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(8px) !important;
   border-radius: 8px !important;
   margin-bottom: 4px !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: rgba(30, 41, 59, 0.95) !important;
+  background: rgba(30, 41, 59, 0.98) !important;
+  color: #fff !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(15, 23, 42, 0.98) !important;
+  color: #e2e8f0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.42) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px !important;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+}
+
+#windy-top-bar .windy-glass {
+  background: rgba(15, 23, 42, 0.88);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+}
+
+#windy-top-bar .windy-glass select {
+  color: #f8fafc !important;
+}
+
+#windy-top-bar .windy-glass option {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+#windy-top-bar .windy-glass > div:last-child > div:first-child {
+  color: #f8fafc !important;
+}
+
+#windy-top-bar .windy-glass > div:last-child > div:last-child {
+  color: #94a3b8 !important;
+}
+
+#windy-detail-panel {
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.94);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.42);
+}
+
+#windy-detail-panel h2 {
+  color: #f8fafc !important;
+}
+
+#windy-detail-panel button[title='收合面板'],
+#windy-detail-panel button[title='展開詳細氣象'] {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+#windy-detail-panel > div[style*='rgba(255, 255, 255'] {
+  color: #e2e8f0;
+}
+
+#windy-detail-panel div[style*='background: rgba(255, 255, 255'] {
+  background: rgba(255, 255, 255, 0.045) !important;
+}
+
+#windy-detail-panel div[style*='color: #FFF'],
+#windy-detail-panel div[style*='color: #F8FAFC'],
+#windy-detail-panel div[style*='color: #F1F5F9'],
+#windy-detail-panel span[style*='color: #FFF'] {
+  color: #f8fafc !important;
+}
+
+#windy-detail-panel div[style*='color: #94A3B8'],
+#windy-detail-panel div[style*='color: #CBD5E1'],
+#windy-detail-panel div[style*='color: #64748B'] {
+  color: #94a3b8 !important;
+}
+
+#windy-detail-panel span[style*='color: #38BDF8'] {
+  color: #38bdf8 !important;
+}
+
+@media (max-width: 700px) {
+  #windy-top-bar {
+    top: 8px !important;
+    left: 8px !important;
+    right: 8px !important;
+    gap: 6px !important;
+  }
+
+  #windy-detail-panel {
+    left: 8px !important;
+    top: 72px !important;
+    width: min(360px, calc(100vw - 16px)) !important;
+    max-height: calc(100vh - 150px) !important;
+  }
 }
