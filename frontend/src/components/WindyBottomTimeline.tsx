@@ -1,6 +1,7 @@
 import React from 'react';
 import { CloudRain, Sun, Cloud, CloudSun, Star } from 'lucide-react';
 import type { CurrentWeather, CountyOverview } from '../types/weather';
+import { getWeatherScaleGradient, WEATHER_LAYER_SCALES, type WeatherLayer } from '../types/map';
 
 interface WindyBottomTimelineProps {
   weather: CurrentWeather | null;
@@ -8,7 +9,7 @@ interface WindyBottomTimelineProps {
   favorites: string[];
   onSelectCity: (city: string) => void;
   onToggleFavorite: (city: string) => void;
-  activeLayer: string;
+  activeLayer: WeatherLayer;
 }
 
 export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
@@ -29,13 +30,7 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
   };
 
   const displayedCounties = overviewList.filter(item => item.city === weather?.city);
-  const layerLegend: Record<string, { title: string; range: string; gradient: string }> = {
-    temp: { title: '溫度', range: '<16°C ~ >30°C', gradient: 'linear-gradient(90deg, #38BDF8 0%, #10B981 35%, #F59E0B 70%, #EF4444 100%)' },
-    wind: { title: '風速', range: '0 ~ 20 m/s', gradient: 'linear-gradient(90deg, #38BDF8 0%, #3B82F6 50%, #A78BFA 100%)' },
-    rain: { title: '雨量', range: '0 ~ 50 mm', gradient: 'linear-gradient(90deg, #64748B 0%, #38BDF8 45%, #2563EB 100%)' },
-    humidity: { title: '濕度', range: '0 ~ 100%', gradient: 'linear-gradient(90deg, #F59E0B 0%, #38BDF8 50%, #A78BFA 100%)' }
-  };
-  const legend = layerLegend[activeLayer] ?? layerLegend.temp;
+  const legend = WEATHER_LAYER_SCALES[activeLayer];
 
   return (
     <div
@@ -91,17 +86,17 @@ export const WindyBottomTimeline: React.FC<WindyBottomTimelineProps> = ({
         </div>
 
         {/* Windy Color Scale Legend (溫度色階標尺) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: '#94A3B8' }}>
-          <span>{`${legend.title}標尺`}</span>
-          <div style={{
-            display: 'flex',
-            height: '8px',
-            width: '120px',
-            borderRadius: '4px',
-            overflow: 'hidden',
-            background: legend.gradient
-          }} />
-          <span style={{ fontFamily: 'var(--font-mono)' }}>{legend.range}</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(180px, 260px)', alignItems: 'center', columnGap: '10px', rowGap: '4px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+          <span style={{ gridRow: '1 / span 2', fontWeight: 800, whiteSpace: 'nowrap' }}>{`${legend.label}標尺`}</span>
+          <div style={{ position: 'relative', height: '12px', borderRadius: '4px', background: getWeatherScaleGradient(activeLayer), border: '1px solid rgba(100, 116, 139, 0.65)', boxShadow: '0 1px 4px rgba(15, 23, 42, 0.2)' }}>
+            {legend.ticks.map(tick => {
+              const position = (tick.value - legend.min) / (legend.max - legend.min) * 100;
+              return <span key={tick.label} aria-hidden="true" style={{ position: 'absolute', left: `${position}%`, top: '-2px', height: '14px', borderLeft: '1px solid rgba(15, 23, 42, 0.75)', transform: 'translateX(-50%)' }} />;
+            })}
+          </div>
+          <div style={{ gridColumn: '2', display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 700, lineHeight: 1 }}>
+            {legend.ticks.map(tick => <span key={tick.label}>{tick.label}</span>)}
+          </div>
         </div>
 
       </div>

@@ -162,7 +162,7 @@ html, body, #root {
 }
 
 .osm-dark-basemap {
-  filter: invert(0.88) hue-rotate(180deg) brightness(0.94) contrast(1.2) saturate(0.9);
+  filter: invert(0.88) hue-rotate(180deg) brightness(0.76) contrast(1.12) saturate(0.72);
 }
 
 .admin-area-label {
@@ -207,14 +207,22 @@ html, body, #root {
 }
 
 .town-label span {
-  padding: 2px 6px;
-  color: #cbd5e1;
-  font-size: 10px;
+  padding: 1px 2px;
+  color: #e2e8f0;
+  font-size: 11px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 5px;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  text-shadow: 0 1px 3px #0f172a, 1px 0 3px #0f172a, -1px 0 3px #0f172a;
+  pointer-events: auto;
 }
+
+.town-label.selected span { border: 0 !important; box-shadow: none !important; }
 
 .admin-area-label strong {
   color: #67d7ca;
@@ -290,6 +298,213 @@ html, body, #root {
   color: #94a3b8 !important;
 }
 
+/* Theme tokens and high-specificity overrides for the map UI's inline dark palette. */
+#app-root[data-theme='light'] {
+  --bg-dark: #f1f5f9;
+  --bg-dock: rgba(255, 255, 255, 0.94);
+  --bg-dock-hover: #e2e8f0;
+  --bg-glass-card: rgba(15, 23, 42, 0.035);
+  --border-glass: rgba(51, 65, 85, 0.18);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --shadow-dock: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+#app-root[data-theme='light'] .leaflet-container { background: #e8f0f4 !important; }
+#app-root[data-theme='light'] .osm-basemap { filter: none; }
+#app-root[data-theme='dark'] .leaflet-container { background: #101820 !important; }
+#app-root[data-theme='dark'] .leaflet-tile-pane { background: #101820; }
+#app-root[data-theme='light'] .windy-glass,
+#app-root[data-theme='light'] #windy-top-bar .windy-glass,
+#app-root[data-theme='light'] #windy-detail-panel,
+#app-root[data-theme='light'] #windy-bottom-dock,
+#app-root[data-theme='light'] #windy-alerts-panel {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(51, 65, 85, 0.18) !important;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16) !important;
+}
+#app-root[data-theme='light'] .windy-btn {
+  color: #1e293b !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(51, 65, 85, 0.24) !important;
+}
+#app-root[data-theme='light'] .windy-btn:hover { background: #e2e8f0 !important; }
+#app-root[data-theme='dark'] #windy-top-bar > .windy-btn {
+  color: #f8fafc !important;
+  background: rgba(15, 23, 42, 0.96) !important;
+  border: 1px solid rgba(148, 163, 184, 0.38) !important;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.34);
+}
+#app-root[data-theme='light'] #windy-top-bar > .windy-btn {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(51, 65, 85, 0.3) !important;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.18);
+}
+#app-root[data-theme='light'] #windy-top-bar > .windy-btn.active {
+  color: #be123c !important;
+  background: #fff1f2 !important;
+}
+#app-root[data-theme='light'] #windy-top-bar .windy-glass select,
+#app-root[data-theme='light'] #windy-top-bar .windy-glass > div:last-child > div:first-child {
+  color: #0f172a !important;
+}
+#app-root[data-theme='light'] #windy-top-bar .windy-glass option {
+  color: #0f172a !important;
+  background: #fff !important;
+}
+#app-root[data-theme='light'] #windy-top-bar .windy-glass > div:last-child > div:last-child,
+#app-root[data-theme='light'] .current-weather-chip span { color: #475569 !important; }
+#app-root[data-theme='light'] .current-weather-chip { border-color: rgba(51, 65, 85, 0.2); }
+#app-root[data-theme='light'] .current-weather-chip small { color: #64748b !important; }
+#app-root[data-theme='light'] .admin-area-label span {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.96);
+  border-color: rgba(51, 65, 85, 0.3);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+#app-root[data-theme='light'] .county-label span { color: #0f172a; }
+#app-root[data-theme='light'] .town-label span { color: #334155; }
+#app-root[data-theme='light'] .town-label span {
+  color: #0f172a;
+  text-shadow: 0 1px 3px #fff, 1px 0 3px #fff, -1px 0 3px #fff;
+}
+#app-root[data-theme='light'] .leaflet-control-zoom a {
+  color: #1e293b !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(51, 65, 85, 0.2) !important;
+}
+#app-root[data-theme='light'] .leaflet-popup-content-wrapper,
+#app-root[data-theme='light'] .leaflet-popup-tip {
+  color: #0f172a !important;
+  background: #fff !important;
+}
+#app-root[data-theme='light'] #windy-detail-panel h2,
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #FFF'],
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #F8FAFC'],
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #F1F5F9'],
+#app-root[data-theme='light'] #windy-detail-panel span[style*='color: #FFF'] { color: #0f172a !important; }
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #94A3B8'],
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #CBD5E1'],
+#app-root[data-theme='light'] #windy-detail-panel div[style*='color: #64748B'] { color: #475569 !important; }
+#app-root[data-theme='light'] #windy-detail-panel div[style*='background: rgba(255, 255, 255'] {
+  background: rgba(15, 23, 42, 0.045) !important;
+}
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #FFF'],
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #F8FAFC'],
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #F1F5F9'] {
+  color: #0f172a !important;
+}
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #94A3B8'],
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #CBD5E1'],
+#app-root[data-theme='light'] #windy-detail-panel [style*='color: #64748B'] {
+  color: #475569 !important;
+}
+#app-root[data-theme='light'] #windy-detail-panel button[title='收合面板'],
+#app-root[data-theme='light'] #windy-detail-panel button[title='展開詳細氣象'] {
+  color: #334155 !important;
+  background: rgba(15, 23, 42, 0.06) !important;
+}
+#app-root[data-theme='light'] #windy-detail-panel button[title='展開詳細氣象'] svg { color: #334155 !important; }
+#app-root[data-theme='light'] #windy-detail-panel :is(h2, p, span, strong, small, button, div) {
+  color: #1e293b !important;
+}
+#app-root[data-theme='light'] #windy-bottom-dock :is(div, span, strong, small, button, p) {
+  color: #334155 !important;
+}
+#app-root[data-theme='light'] #windy-bottom-dock > div:first-child > div:last-child {
+  color: #475569 !important;
+}
+#app-root[data-theme='light'] #windy-alerts-panel span { color: #334155 !important; }
+#app-root[data-theme='light'] #windy-alerts-panel button { color: #334155 !important; }
+#app-root[data-theme='light'] .windy-station-marker > div {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+#app-root[data-theme='light'] .location-status { color: #334155; }
+#app-root[data-theme='light'] #windy-alerts-panel span[style*='color: #D1FAE5'] { color: #047857 !important; }
+
+/* Keep map navigation clear of the left-side weather panel. */
+.leaflet-top.leaflet-left {
+  top: auto !important;
+  left: auto !important;
+  right: 18px !important;
+  bottom: 112px !important;
+}
+.leaflet-control-zoom {
+  margin: 0 !important;
+}
+
+/* Keep the theme switch at the top-right and alerts at the bottom-right. */
+#windy-top-bar #windy-theme-btn {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 70;
+}
+#windy-top-bar {
+  right: 132px !important;
+  max-width: calc(100vw - 168px);
+  align-content: flex-start;
+}
+#windy-top-bar > div:last-child {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+#windy-favorites-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+#windy-favorites-select {
+  max-width: min(190px, 32vw);
+  border: 0;
+  outline: 0;
+  color: #f8fafc;
+  background: transparent;
+  font: 600 13px var(--font-main);
+  cursor: pointer;
+}
+#windy-favorites-select option { color: #f8fafc; background: #0f172a; }
+#app-root[data-theme='light'] #windy-favorites-select-wrap {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(51, 65, 85, 0.24) !important;
+}
+#app-root[data-theme='light'] #windy-favorites-select,
+#app-root[data-theme='light'] #windy-favorites-select option {
+  color: #1e293b !important;
+  background: #fff !important;
+}
+#windy-alerts-panel {
+  top: auto !important;
+  right: 70px !important;
+  bottom: 112px !important;
+  z-index: 45 !important;
+  max-width: calc(100vw - 92px);
+}
+
+@media (max-width: 900px) {
+  #windy-detail-panel {
+    top: 150px !important;
+    max-height: calc(100vh - 250px) !important;
+  }
+}
+
+#app-root[data-theme='dark'] #windy-top-bar .location-status,
+#app-root[data-theme='light'] #windy-top-bar .location-status {
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--border-glass);
+  background: var(--bg-dock);
+  box-shadow: var(--shadow-dock);
+  font-size: 12px;
+}
+
 #windy-top-bar .windy-glass {
   background: rgba(15, 23, 42, 0.88);
   border-color: rgba(255, 255, 255, 0.12);
@@ -359,14 +574,24 @@ html, body, #root {
   #windy-top-bar {
     top: 8px !important;
     left: 8px !important;
-    right: 8px !important;
+    right: 96px !important;
+    max-width: calc(100vw - 112px);
     gap: 6px !important;
+    max-height: 134px;
+    overflow-y: auto;
   }
 
   #windy-detail-panel {
     left: 8px !important;
-    top: 72px !important;
+    top: 148px !important;
     width: min(360px, calc(100vw - 16px)) !important;
-    max-height: calc(100vh - 150px) !important;
+    max-height: calc(100vh - 245px) !important;
+  }
+
+  #windy-top-bar #windy-theme-btn { top: 8px; right: 8px; }
+  #windy-alerts-panel {
+    right: 62px !important;
+    bottom: 104px !important;
+    max-height: min(180px, calc(100vh - 180px));
   }
 }

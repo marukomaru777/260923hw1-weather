@@ -2,13 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { CountyOverview, Station } from '../types/weather';
+import { getWeatherScaleColor, type AppTheme, type WeatherLayer } from '../types/map';
 
-export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity';
+export type { WeatherLayer } from '../types/map';
 
 // Kaohsiung City includes the remote Dongsha and Nansha islands. Their large
 // administrative extent pulls a geometry-bounds center far out into the sea,
 // so anchor the overview label at the urban center on Taiwan proper.
 const COUNTY_LABEL_ANCHORS: Record<string, L.LatLngExpression> = {
+  '新竹市': [24.805, 120.91],
+  '新竹縣': [24.68, 121.03],
+  '嘉義市': [23.49, 120.38],
+  '嘉義縣': [23.42, 120.68],
   '高雄市': [22.6273, 120.3014],
   '金門縣': [24.4400, 118.3180],
   '宜蘭縣': [24.7570, 121.7530]
@@ -20,22 +25,43 @@ const COUNTY_MAINLAND_RADII: Record<string, number> = {
   '宜蘭縣': 70_000
 };
 
+function getAdministrativeStyle(theme: AppTheme): L.PathOptions {
+  return theme === 'light'
+    ? { color: '#64748b', weight: 0.9, opacity: 0.75, fillColor: '#e2e8f0', fillOpacity: 0.3 }
+    : { color: '#58636a', weight: 0.9, opacity: 0.82, fillColor: '#2c3035', fillOpacity: 0.72 };
+}
+
 function isNearCountyLabelAnchor(feature: any, county: string) {
   const anchor = COUNTY_LABEL_ANCHORS[county];
-  if (!anchor) return true;
+  const mainlandRadius = COUNTY_MAINLAND_RADII[county];
+  if (!anchor || mainlandRadius == null) return true;
   const center = L.geoJSON(feature).getBounds().getCenter();
-  return center.distanceTo(L.latLng(anchor)) <= COUNTY_MAINLAND_RADII[county];
+  return center.distanceTo(L.latLng(anchor)) <= mainlandRadius;
+}
+
+function getAreaBounds(data: any, county: string, town = '') {
+  const bounds = L.latLngBounds([]);
+  (data?.features ?? []).forEach((feature: any) => {
+    if (
+      feature.properties?.COUNTYNAME === county &&
+      (!town || feature.properties?.TOWNNAME === town) &&
+      (town || isNearCountyLabelAnchor(feature, county))
+    ) {
+      bounds.extend(L.geoJSON(feature).getBounds());
+    }
+  });
+  return bounds;
 }
 
 function getLayerValue(layer: WeatherLayer, station?: Station, overviewTemperature?: number | null) {
   if (layer === 'temp') {
     const value = overviewTemperature ?? station?.temperature;
-    return value == null ? null : { text: `${Math.round(value)}°`, color: '#67d7ca' };
+    return value == null ? null : { text: `${Math.round(value)}°`, color: getWeatherScaleColor(layer, value) };
   }
   if (!station) return null;
-  if (layer === 'wind') return station.wind_speed == null ? null : { text: `${station.wind_speed}m/s`, color: '#60a5fa' };
-  if (layer === 'rain') return { text: `${station.rain}mm`, color: '#38bdf8' };
-  return station.humidity == null ? null : { text: `${station.humidity}%`, color: '#c4a7ff' };
+  if (layer === 'wind') return station.wind_speed == null ? null : { text: `${station.wind_speed}m/s`, color: getWeatherScaleColor(layer, station.wind_speed) };
+  if (layer === 'rain') return { text: `${station.rain}mm`, color: getWeatherScaleColor(layer, station.rain) };
+  return station.humidity == null ? null : { text: `${station.humidity}%`, color: getWeatherScaleColor(layer, station.humidity) };
 }
 
 interface WindyMapProps {
@@ -48,6 +74,10 @@ interface WindyMapProps {
   activeLayer: WeatherLayer;
   favorites: string[];
   onlyFavorites: boolean;
+  theme: AppTheme;
+  userPosition: { latitude: number; longitude: number } | null;
+  returnToTaiwanKey: number;
+  selectedAreaFocusKey: number;
 }
 
 export const WindyMap: React.FC<WindyMapProps> = ({
@@ -59,18 +89,26 @@ export const WindyMap: React.FC<WindyMapProps> = ({
   onSelectCity,
   activeLayer,
   favorites,
-  onlyFavorites
+  onlyFavorites,
+  theme,
+  userPosition,
+  returnToTaiwanKey,
+  selectedAreaFocusKey
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const userLocationMarkerRef = useRef<L.CircleMarker | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const adminLayerRef = useRef<L.GeoJSON | null>(null);
   const adminLabelsRef = useRef<L.LayerGroup | null>(null);
   const adminDataRef = useRef<any>(null);
   const drawLabelsRef = useRef<() => void>(() => {});
   const focusFavoriteRef = useRef<() => void>(() => {});
+  const focusSelectedAreaRef = useRef<() => void>(() => {});
   const onSelectCityRef = useRef(onSelectCity);
   onSelectCityRef.current = onSelectCity;
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   const [mapZoom, setMapZoom] = useState(7.8);
 
   // Initialize Map
@@ -90,7 +128,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
 
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        className: 'osm-dark-basemap',
+        className: theme === 'dark' ? 'osm-basemap osm-dark-basemap' : 'osm-basemap',
         attribution: ''
       }).addTo(map);
 
@@ -98,13 +136,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       setMapZoom(map.getZoom());
       map.on('zoomend', () => setMapZoom(map.getZoom()));
       adminLayerRef.current = L.geoJSON(undefined, {
-        style: {
-          color: '#58636a',
-          weight: 0.9,
-          opacity: 0.82,
-          fillColor: '#2c3035',
-          fillOpacity: 0.72
-        },
+        style: getAdministrativeStyle(theme),
         onEachFeature: (feature, layer) => {
         const county = feature.properties?.COUNTYNAME ?? '';
         const town = feature.properties?.TOWNNAME ?? '';
@@ -126,6 +158,48 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    mapInstanceRef.current?.eachLayer(layer => {
+      if (layer instanceof L.TileLayer) {
+        const tileContainer = layer.getContainer();
+        tileContainer?.classList.toggle('osm-dark-basemap', theme === 'dark');
+      }
+    });
+    adminLayerRef.current?.setStyle(getAdministrativeStyle(theme));
+  }, [theme]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !userPosition) return;
+    userLocationMarkerRef.current?.remove();
+    const position: L.LatLngExpression = [userPosition.latitude, userPosition.longitude];
+    userLocationMarkerRef.current = L.circleMarker(position, {
+      radius: 9, color: '#ffffff', weight: 3, fillColor: '#2563eb', fillOpacity: 1
+    }).addTo(map).bindTooltip('目前位置');
+    map.setView(position, 11, { animate: true });
+  }, [userPosition]);
+
+  useEffect(() => {
+    if (returnToTaiwanKey > 0) {
+      mapInstanceRef.current?.setView([23.8, 120.9], 7.8, { animate: true });
+    }
+  }, [returnToTaiwanKey]);
+
+  const focusSelectedAreaOnMap = () => {
+    const map = mapInstanceRef.current;
+    const data = adminDataRef.current;
+    if (!map || !data || selectedAreaFocusKey === 0) return;
+    const bounds = getAreaBounds(data, currentCity, currentTown);
+    if (!bounds.isValid()) return;
+    if (currentTown) map.fitBounds(bounds.pad(0.8), { maxZoom: 12, animate: true });
+    else map.setView(bounds.getCenter(), 10.5, { animate: true });
+  };
+  focusSelectedAreaRef.current = focusSelectedAreaOnMap;
+
+  useEffect(() => {
+    focusSelectedAreaRef.current();
+  }, [selectedAreaFocusKey, currentCity, currentTown]);
+
   // Draw only administrative geography and labels: no road, satellite, or terrain tiles.
   useEffect(() => {
     let cancelled = false;
@@ -138,8 +212,10 @@ export const WindyMap: React.FC<WindyMapProps> = ({
         if (cancelled || !mapInstanceRef.current || !adminLayerRef.current) return;
         adminDataRef.current = data;
         adminLayerRef.current.addData(data);
+        adminLayerRef.current.setStyle(getAdministrativeStyle(themeRef.current));
         drawLabelsRef.current();
         focusFavoriteRef.current();
+        focusSelectedAreaRef.current();
       })
       .catch(error => console.error('無法載入行政區界線：', error));
 
@@ -159,11 +235,9 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     if (!map || !labels || !data) return;
     labels.clearLayers();
 
-    const [focusedCounty, focusedTown] = focusedFavorite.split('|');
     const features = (data.features ?? []).filter((feature: any) => {
       const county = feature.properties?.COUNTYNAME ?? '';
       const town = feature.properties?.TOWNNAME ?? '';
-      if (focusedFavorite) return county === focusedCounty && (!focusedTown || town === focusedTown);
       if (onlyFavorites) return favorites.some(favorite => {
         const [favoriteCounty, favoriteTown] = favorite.split('|');
         return county === favoriteCounty && (!favoriteTown || town === favoriteTown);
@@ -174,32 +248,9 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const visibleBounds = map.getBounds();
     const visibleFeatures = features.filter((feature: any) => L.geoJSON(feature).getBounds().intersects(visibleBounds));
 
-    if (map.getZoom() >= 10) {
-      visibleFeatures.forEach((feature: any) => {
-        const townLayer = L.geoJSON(feature);
-        const county = feature.properties?.COUNTYNAME ?? '';
-        const town = feature.properties?.TOWNNAME ?? '';
-        const townStation = stations.find(station => station.county === county && station.town === town);
-        const value = getLayerValue(activeLayer, townStation, undefined);
-        const center: L.LatLngExpression = townStation?.lat != null && townStation.lng != null
-          ? [townStation.lat, townStation.lng]
-          : townLayer.getBounds().getCenter();
-        L.marker(center, {
-          interactive: true,
-          pane: 'tooltipPane',
-          icon: L.divIcon({
-            className: `admin-area-label town-label${county === currentCity && town === currentTown ? ' selected' : ''}`,
-            html: `<span><b>${town}</b>${value ? `<strong style="color:${value.color}">${value.text}</strong>` : ''}</span>`,
-            iconSize: [1, 1],
-            iconAnchor: [0, 0]
-          })
-        }).on('click', () => {
-          onSelectCityRef.current(`${county}|${town}`);
-          map.fitBounds(townLayer.getBounds().pad(0.15), { maxZoom: 12, animate: true });
-        }).addTo(labels);
-      });
-      return;
-    }
+    // OSM already provides town and district names. At close zoom keep only
+    // the weather station values so we do not duplicate or cover base labels.
+    if (map.getZoom() >= 10) return;
 
     const countyBounds = new Map<string, L.LatLngBounds>();
     visibleFeatures.forEach((feature: any) => {
@@ -228,7 +279,8 @@ export const WindyMap: React.FC<WindyMapProps> = ({
         })
       }).on('click', () => {
         onSelectCityRef.current(county);
-        map.fitBounds(bounds.pad(0.12), { maxZoom: 10.5, animate: true });
+        const countyBounds = getAreaBounds(data, county);
+        if (countyBounds.isValid()) map.setView(countyBounds.getCenter(), 10.5, { animate: true });
       }).addTo(labels);
     });
   };
@@ -239,20 +291,10 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const data = adminDataRef.current;
     if (!focusedFavorite || !map || !data) return;
     const [county, town] = focusedFavorite.split('|');
-    const bounds = L.latLngBounds([]);
-    (data.features ?? []).forEach((feature: any) => {
-      if (
-        feature.properties?.COUNTYNAME === county &&
-        (!town || feature.properties?.TOWNNAME === town) &&
-        (town || isNearCountyLabelAnchor(feature, county))
-      ) {
-        bounds.extend(L.geoJSON(feature).getBounds());
-      }
-    });
-    if (bounds.isValid()) map.fitBounds(bounds.pad(town ? 0.8 : 0.12), {
-      maxZoom: town ? 12 : 9,
-      animate: true
-    });
+    const bounds = getAreaBounds(data, county, town);
+    if (!bounds.isValid()) return;
+    if (town) map.fitBounds(bounds.pad(0.8), { maxZoom: 12, animate: true });
+    else map.setView(bounds.getCenter(), 10.5, { animate: true });
   };
   focusFavoriteRef.current = focusFavoriteOnMap;
 
@@ -264,7 +306,7 @@ export const WindyMap: React.FC<WindyMapProps> = ({
 
   useEffect(() => {
     drawAdministrativeLabels();
-  }, [focusedFavorite, favorites, onlyFavorites, overviewList, stations, currentCity, currentTown, activeLayer]);
+  }, [focusedFavorite, favorites, onlyFavorites, overviewList, stations, currentCity, currentTown, activeLayer, theme]);
 
   // Update weather station markers based on selected area and active layer
   useEffect(() => {
@@ -272,22 +314,16 @@ export const WindyMap: React.FC<WindyMapProps> = ({
 
     markersLayerRef.current.clearLayers();
 
-    const [focusedCounty, focusedTown] = focusedFavorite.split('|');
-    const matchesFocus = (county: string, town?: string) => !focusedFavorite || (
-      county === focusedCounty && (!focusedTown || (town ? town === focusedTown : true))
-    );
+    // Focusing one saved location changes only the map camera. Keep all weather
+    // readings in the current display mode visible; the favorites mode filters
+    // to the complete saved set, never to just the currently focused favorite.
+    const availableStations = stations;
+    let displayStations = onlyFavorites
+      ? availableStations.filter(s => favorites.some(fav => fav.includes('|') ? fav === `${s.county}|${s.town}` : s.county === fav))
+      : availableStations;
 
-    const currentAreaStations = stations.filter(s =>
-      s.county === currentCity && (!currentTown || s.town === currentTown)
-    );
-    let displayStations = focusedFavorite
-      ? currentAreaStations.filter(s => matchesFocus(s.county, s.town))
-      : onlyFavorites
-      ? currentAreaStations.filter(s => favorites.some(fav => fav.includes('|') ? fav === `${s.county}|${s.town}` : s.county === fav))
-      : currentAreaStations;
-
-    // Keep the national overview readable: show one representative observation
-    // for the selected county, then reveal its stations as the user zooms in.
+    // Preserve station data across county selection. At close zoom show all
+    // visible county readings, while keeping the nationwide view uncluttered.
     if (mapZoom < 10) displayStations = [];
     else if (mapZoom < 12 && displayStations.length > 1) {
       const townStations = new Map<string, Station>();
@@ -299,26 +335,22 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     }
 
     displayStations.forEach(s => {
-      const isFav = favorites.some(fav => s.county.includes(fav));
+      // County favorites focus the county but do not mark every township
+      // station as a favorite. Only an explicitly saved township gets a star.
+      const isFav = favorites.includes(`${s.county}|${s.town}`);
       const isCurrentCity = s.county.includes(currentCity) && (!currentTown || s.town === currentTown);
 
       // Determine badge label and color by active layer
       let label = '';
-      let badgeColor = '#4fb5b2';
+      let value: number | null = null;
       let arrowHtml = '';
 
       if (activeLayer === 'temp') {
-        const t = s.temperature;
-        label = t !== null ? `${Math.round(t)}°` : '--';
-        if (t === null) badgeColor = '#94a3a8';
-        else if (t < 18) badgeColor = '#61a9c2';
-        else if (t < 24) badgeColor = '#54b9a8';
-        else if (t < 28) badgeColor = '#e4bb52';
-        else badgeColor = '#e87560';
+        value = s.temperature;
+        label = value !== null ? `${Math.round(value)}°` : '--';
       } else if (activeLayer === 'wind') {
-        const w = s.wind_speed;
-        label = w !== null ? `${w}m/s` : '--';
-        badgeColor = '#60A5FA';
+        value = s.wind_speed;
+        label = value !== null ? `${value}m/s` : '--';
         // Wind direction arrow (Pure Windy feature!)
         const dir = s.wind_direction ?? 0;
         arrowHtml = `
@@ -328,42 +360,41 @@ export const WindyMap: React.FC<WindyMapProps> = ({
           </svg>
         `;
       } else if (activeLayer === 'rain') {
-        const r = s.rain;
-        label = `${r}mm`;
-        badgeColor = r > 0 ? '#06B6D4' : 'rgba(148, 163, 184, 0.4)';
+        value = s.rain;
+        label = `${value}mm`;
       } else if (activeLayer === 'humidity') {
-        const h = s.humidity;
-        label = h !== null ? `${h}%` : '--';
-        badgeColor = '#A78BFA';
+        value = s.humidity;
+        label = value !== null ? `${value}%` : '--';
       }
+      const badgeColor = getWeatherScaleColor(activeLayer, value);
 
       // Star badge if favorite
       const starHtml = isFav ? `<span style="color: #F59E0B; margin-left: 2px; font-size: 9px;">★</span>` : '';
 
       // Create Custom Windy Marker
       const customIcon = L.divIcon({
-        className: 'windy-station-marker',
+        className: `windy-station-marker${theme === 'light' ? ' theme-light' : ''}`,
         html: `
           <div style="
-            background: ${isCurrentCity ? '#e87560' : 'rgba(20, 27, 37, 0.94)'};
+            background: ${theme === 'light' ? 'rgba(255, 255, 255, 0.97)' : 'rgba(12, 18, 30, 0.97)'};
             border: ${isFav ? '2px solid #e4ae37' : `1.5px solid ${badgeColor}`};
-            color: #f1f5f9;
+            color: ${theme === 'light' ? '#0f172a' : '#f8fafc'};
             font-size: 11px;
             font-weight: 700;
             padding: 2px 5px;
             border-radius: 8px;
-            box-shadow: 0 2px 8px ${isCurrentCity ? 'rgba(232, 117, 96, 0.42)' : 'rgba(38, 76, 87, 0.18)'};
+            box-shadow: 0 2px 8px ${isCurrentCity ? 'rgba(0, 0, 0, 0.42)' : 'rgba(0, 0, 0, 0.24)'};
             white-space: nowrap;
             display: flex;
             align-items: center;
             justify-content: center;
-            cursor: pointer;
+            cursor: default;
             backdrop-filter: blur(5px);
             transform: scale(${isCurrentCity ? 1.2 : 1});
             transition: transform 0.2s ease;
           ">
             ${arrowHtml}
-            <span>${label}</span>
+            <span style="color: ${badgeColor}">${label}</span>
             ${starHtml}
           </div>
         `,
@@ -371,66 +402,11 @@ export const WindyMap: React.FC<WindyMapProps> = ({
         iconAnchor: [20, 10]
       });
 
-      const marker = L.marker([s.lat, s.lng], { icon: customIcon });
-
-      // Click to select this city in the Windy panel
-      marker.on('click', () => {
-        onSelectCityRef.current(`${s.county}|${s.town}`);
-        const townBounds = L.latLngBounds([]);
-        adminDataRef.current?.features?.forEach((feature: any) => {
-          if (feature.properties?.COUNTYNAME === s.county && feature.properties?.TOWNNAME === s.town) {
-            townBounds.extend(L.geoJSON(feature).getBounds());
-          }
-        });
-        if (townBounds.isValid()) mapInstanceRef.current?.fitBounds(townBounds.pad(0.15), { maxZoom: 12, animate: true });
-      });
-
-      // Windy-style Popup
-      const popupHtml = `
-        <div style="min-width: 170px; padding: 2px; font-family: sans-serif;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <strong style="color: #429e9b; font-size: 14px;">${s.station_name}</strong>
-            <span style="font-size: 11px; color: #71818a;">${s.county} ${s.town}</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: #40545c;">
-            <div>🌡️ 氣溫：<strong>${s.temperature ?? '--'} °C</strong></div>
-            <div>💨 風速：<strong>${s.wind_speed ?? '--'} m/s</strong> (方位 ${s.wind_direction ?? 0}°)</div>
-            <div>🌧️ 時雨量：<strong>${s.rain} mm</strong></div>
-            <div>💧 相對濕度：<strong>${s.humidity ?? '--'}%</strong></div>
-          </div>
-          <button 
-            onclick="window.dispatchEvent(new CustomEvent('windy-select-city', { detail: '${s.county}|${s.town}' }))"
-            style="
-              margin-top: 8px;
-              width: 100%;
-              background: #4caeaa;
-              border: none;
-              color: white;
-              padding: 4px 8px;
-              border-radius: 6px;
-              font-size: 11px;
-              font-weight: 600;
-              cursor: pointer;
-            "
-          >
-            檢視 ${s.county} 氣象預報
-          </button>
-        </div>
-      `;
-
-      marker.bindPopup(popupHtml);
+      // The numeric weather badge is an informational marker, not a link.
+      const marker = L.marker([s.lat, s.lng], { icon: customIcon, interactive: false });
       markersLayerRef.current?.addLayer(marker);
     });
-  }, [stations, activeLayer, favorites, onlyFavorites, currentCity, currentTown, focusedFavorite, mapZoom]);
-
-  // Listen to popup custom event to switch city
-  useEffect(() => {
-    const handleSelect = (e: any) => {
-      if (e.detail) onSelectCityRef.current(e.detail);
-    };
-    window.addEventListener('windy-select-city', handleSelect);
-    return () => window.removeEventListener('windy-select-city', handleSelect);
-  }, []);
+  }, [stations, activeLayer, favorites, onlyFavorites, currentCity, currentTown, focusedFavorite, mapZoom, theme]);
 
   return (
     <div

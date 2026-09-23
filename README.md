@@ -3,28 +3,54 @@
 台灣即時天氣與地圖平台，整合中央氣象署（CWA）觀測、預報與特報資料，並以 Leaflet 顯示縣市、鄉鎮及測站資訊。
 
 - 線上前端：[frontend-delta-three-29.vercel.app](https://frontend-delta-three-29.vercel.app/)
-- 後端 API：[backend-seven-phi-49.vercel.app](https://backend-seven-phi-49.vercel.app/)
-- API 健康檢查：[查看 `/api/health`](https://backend-seven-phi-49.vercel.app/api/health)
+- GitHub Repository：[marukomaru777/260923hw1-weather](https://github.com/marukomaru777/260923hw1-weather)
 
-> 後端根網址 `/` 沒有首頁，回傳 `{"detail":"Not Found"}` 是預期行為。請使用下方列出的 `/api/...` 路由。
+![Taiwan Environment Platform preview](docs/images/taiwan-environment-platform.png)
 
-## 功能
+## 功能介紹
 
-- 縣市天氣總覽；縮放地圖或點選行政區後，可查看鄉鎮與測站資料。
-- 氣溫、風速、雨量、濕度圖層切換，點選地區可開啟天氣詳細資料與 36 小時預報。
-- 收藏縣市或鄉鎮，快速聚焦地圖；收藏資料存在瀏覽器 `localStorage`。
-- 顯示即時天氣特報。
-- 地圖使用 OpenStreetMap 底圖、專案內的鄉鎮界線 GeoJSON，不需要地圖 API key；底圖提供者與界線資料來源會在地圖上標示。
-- 空氣品質/AQI 尚未納入目前版本。
+- **全台天氣地圖**：呈現縣市天氣與有觀測資料的測站數值。選取縣市或鄉鎮後地圖會聚焦至對應範圍；縣市視角放大至鄉鎮層級，便於查看測站分布。
+- **天氣圖層**：可切換氣溫、風速、雨量與濕度，地圖數值依圖層色階上色，並以有刻度的標尺呈現數值區間。
+- **天氣詳細資料與預報**：選取地區可查看即時天氣觀測與 36 小時預報；地圖底部顯示目前縣市的預報資訊及溫度走勢。
+- **天氣特報**：顯示中央氣象署發布的即時天氣特報。
+- **收藏地點**：可收藏縣市或鄉鎮，收藏儲存在瀏覽器 `localStorage`。支援全台與只看收藏兩種顯示模式；收藏下拉選單可聚焦單一收藏地點，不會改變天氣詳細資料或隱藏目前模式中的其他資料。縣市收藏會聚焦至該縣市的鄉鎮層級；地圖測站只會在個別鄉鎮已收藏時顯示收藏星號。
+- **定位與地圖操作**：可授權瀏覽器定位並選取所在縣市，也可按「回到台灣」返回全台檢視；地圖支援縮放。
+- **介面主題**：支援深色／淺色模式切換，深色模式同步切換深色底圖。
+- **地圖資料**：使用 OpenStreetMap 底圖與專案內的鄉鎮界線 GeoJSON，不需要地圖 API key。全台視角顯示縣市標籤；放大後沿用底圖地名，避免重複遮住鄉鎮名稱。底圖提供者與界線資料來源會在地圖上標示。
 
-## 技術
+## 技術說明
+
+### 系統架構與資料流程
+
+```text
+┌──────────────────┐       HTTPS / JSON       ┌────────────────────┐
+│ React + Leaflet   │ ────────────────────────> │ FastAPI             │
+│ Vercel 靜態前端   │   VITE_API_BASE_URL      │ Vercel Python Func. │
+└──────────────────┘                           └─────────┬──────────┘
+          │                                               │
+          ├─ GeoJSON 行政區界線                           ├─ CWA OpenData
+          ├─ OpenStreetMap 瓦片                           ├─ TTL 記憶體快取
+          └─ localStorage 收藏                           └─ SQLite 歷史資料
+```
+
+前端地圖資料透過 Fetch API 呼叫 FastAPI，使用 JSON 傳輸縣市天氣、36 小時預報、測站觀測與特報。行政區界線由專案內的 `frontend/public/taiwan-townships.geojson` 提供；OpenStreetMap 提供底圖瓦片與地名，不需要地圖 API key。瀏覽器定位使用 Geolocation API，縣市／鄉鎮判斷在本機透過行政區 GeoJSON 點位比對完成。
+
+### 技術選型
 
 | 部分 | 技術 |
 | --- | --- |
-| 前端 | React 19、TypeScript、Vite 8、Leaflet、Chart.js |
-| 後端 | Python、FastAPI、Uvicorn、HTTPX |
-| 本機資料庫 | SQLite，保存觀測、預報與特報歷史 |
-| 線上部署 | Vercel 前端與後端分成兩個專案 |
+| 前端應用 | React 19、TypeScript、Vite 8；Vite 負責開發伺服器與靜態 bundle 建置。 |
+| 地圖 / 視覺化 | Leaflet 顯示 OSM 瓦片與行政區 GeoJSON；Chart.js / `react-chartjs-2` 顯示 36 小時溫度走勢。 |
+| API | Python、FastAPI、Uvicorn、HTTPX；routers 按天氣、預報、測站、特報、收藏與歷史資料拆分。 |
+| 儲存 | SQLite 本機保存觀測、預報與特報歷史；API 快取為程序內 TTL cache；前端收藏存於使用者瀏覽器 `localStorage`。 |
+| 部署 | Vercel 以兩個獨立 Project 部署靜態前端與 Python API，透過環境變數連接。 |
+
+### 地圖與資料呈現
+
+- `WeatherLayer` 定義氣溫、風速、雨量、濕度圖層；`frontend/src/types/map.ts` 集中管理各圖層數值範圍、色階與標尺漸層，確保圖例與測站標記共用同一套色彩映射。
+- 全台模式保留各縣市讀值；收藏模式呈現所有收藏地區。單獨選擇收藏只移動地圖視角，不改變目前詳細資料，也不在該模式中隱藏其他資料。選取縣市時以縣市行政區範圍計算中心，固定聚焦到 zoom 10.5；選取鄉鎮時以鄉鎮 polygon bounds `fitBounds`，最高 zoom 12。計算縣市範圍時會排除高雄等縣市的離島幾何，避免遠端島嶼把本島縮放範圍拉遠。
+- 全台縮放層級顯示縣市天氣標籤；放大後使用底圖原生鄉鎮地名，避免重複覆蓋名稱，測站讀值仍以獨立 marker 顯示。
+- 測站、預報與特報由不同 API router 提供。前端請求失敗或逾時時會回退至 `frontend/src/services/fallbackData.ts` 的示範資料；因此確認即時資料應查看後端 API 回應與瀏覽器 Network，而不能只依 UI 是否有數值判斷。
 
 ## 資料來源
 
@@ -79,24 +105,83 @@ npm run dev
 
 ## Vercel 部署
 
-GitHub Pages 工作流程已移除。前端與後端需在 Vercel 建立為兩個專案，並連接同一個 GitHub repository：
+此 repository 是 monorepo；前端靜態網站與 FastAPI 後端分別部署為兩個 Vercel Project，兩者連接同一個 GitHub repository，但使用不同 Root Directory。瀏覽器直接呼叫後端的 API origin，不經由前端 Vercel Project 轉送。
 
-### Backend 專案
+### 前後端請求路徑
 
-1. Root Directory 設為 `backend`。
-2. 在 Project Settings → Environment Variables 新增 `CWA_API_KEY`，套用至 Production。
-3. 入口檔為 `backend/index.py`，它匯入 FastAPI `app`；相依套件列於 `backend/requirements.txt`。
-4. 儲存或變更環境變數後，重新部署 Production，讓新值套用到部署。
+```text
+Browser
+  ├─ GET https://<frontend-domain>/         → Vercel 靜態前端 (React/Vite)
+  └─ GET https://<backend-domain>/api/...   → Vercel Python Function (FastAPI)
+                                                └─ CWA OpenData
+```
 
-### Frontend 專案
+前端的 `frontend/src/services/api.ts` 讀取 `VITE_API_BASE_URL`，去除結尾的 `/` 後組成 `${VITE_API_BASE_URL}/api`。例如，若設為 `https://weather-api.example.vercel.app`，全台總覽的請求會送到 `https://weather-api.example.vercel.app/api/weather/overview`。正式環境未設定此變數時，前端會嘗試同網域 `/api`，因此 Backend 與 Frontend 分開部署時必須設定此值。
 
-1. Root Directory 設為 `frontend`。
-2. Build Command 為 `npm run build`，Output Directory 為 `dist`。
-3. 在 Project Settings → Environment Variables 設定 `VITE_API_BASE_URL` 為 Backend 專案的 origin，例如 `https://your-backend.vercel.app`，然後重新部署前端。
+### Backend Project：FastAPI / Python Function
 
-前端會呼叫 `${VITE_API_BASE_URL}/api/...`。不要把 `CWA_API_KEY` 設成 `VITE_` 開頭的前端變數，否則會暴露在瀏覽器端。
+在 Vercel 建立第一個 Project，匯入 repository，設定：
 
-Vercel Serverless Function 的 `/tmp` 與程序記憶體都不是持久儲存：線上 SQLite 歷史資料、API 快取及後端收藏資料可能在重啟或不同執行個體間消失。正式環境若需要長期保存，請改用持久化資料庫。前端互動所用收藏存在各使用者自己的瀏覽器 `localStorage`。
+| 設定 | 值 | 說明 |
+| --- | --- | --- |
+| Root Directory | `backend` | 從 `backend/` 尋找 Python 專案與相依套件。 |
+| Framework Preset | Other，或讓 Vercel 自動偵測 Python | 本專案透過 Python Function 提供 FastAPI ASGI app。 |
+| Build Command | 留空／使用自動偵測 | `backend/vercel.json` 目前僅宣告 schema，沒有自訂 build command。 |
+| Output Directory | 留空 | Python API 不是靜態輸出目錄。 |
+
+Vercel 以 `backend/index.py` 作為部署入口；此檔匯入 `app.main:app`。Python 套件由 `backend/requirements.txt` 安裝。`backend/app/main.py` 建立 FastAPI app、註冊天氣、預報、測站、特報、收藏與歷史資料 routers，並在啟動時初始化 SQLite schema。API 路由以 `/api/...` 提供，例如 `/api/health`、`/api/weather/overview`。
+
+在 Backend Project 的 **Settings → Environment Variables** 設定：
+
+| 變數 | 必要性 | 用途 |
+| --- | --- | --- |
+| `CWA_API_KEY` | 必要 | 後端向 CWA OpenData 發送授權請求。只能存於 Backend Project，不可使用 `VITE_` 前綴。 |
+| `CACHE_TTL_SECONDS` | 選用，預設 `600` | 後端程序內記憶體快取的有效秒數。Serverless 執行個體各自快取，不保證跨執行個體共用。 |
+
+至少將 `CWA_API_KEY` 指派到 Production；如需測試 Preview Deployment，也要將變數設定至 Preview scope。不要在 Vercel 設定 `PORT`；服務監聽埠由平台管理。儲存或更改變數後，重新部署 Backend，因為既有 deployment 不會自動取得新的環境變數。
+
+Backend domain 建立後，記下它的 origin（協定與主機名稱，不加 `/api`），例如 `https://weather-api.example.vercel.app`。
+
+### Frontend Project：React / Vite 靜態網站
+
+在 Vercel 再建立一個 Project，仍連接同一 repository，設定：
+
+| 設定 | 值 | 說明 |
+| --- | --- | --- |
+| Root Directory | `frontend` | 只使用前端專案、`package.json` 與 lockfile。 |
+| Framework Preset | Vite | 產物為瀏覽器端 React 單頁應用程式。 |
+| Install Command | `npm install`，或使用 Vercel 自動偵測 | 依 `frontend/package-lock.json` 安裝相依套件。 |
+| Build Command | `npm run build` | 執行 `tsc -b` 型別建置，再由 Vite 輸出靜態資產。 |
+| Output Directory | `dist` | 相對於 Frontend Root Directory，即 `frontend/dist`。 |
+
+`frontend/vercel.json` 將未對應到靜態檔案的路徑 rewrite 至 `/index.html`，讓 React SPA 的前端路由可在重新整理或直接開啟路徑時載入。Vite 的 `base` 設為 `./`，靜態資產以相對路徑輸出。
+
+在 Frontend Project 的 **Settings → Environment Variables** 設定：
+
+| 變數 | 值 | 用途 |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | Backend origin，例如 `https://weather-api.example.vercel.app` | Vite 在 build 時注入前端 bundle，讓瀏覽器呼叫獨立部署的 API。不要加結尾 `/` 或 `/api`；前端會自行處理 `/api` 路徑。 |
+
+`VITE_` 前綴代表變數會公開到使用者可下載的前端 JavaScript，適合放 API 網址等公開設定，**不可**放 `CWA_API_KEY` 或其他秘密。環境變數依 Production、Preview、Development scope 分開設定；修改 `VITE_API_BASE_URL` 後必須重新部署 Frontend，因為網址在 build 時已編入資產。
+
+### 跨來源請求與 CORS
+
+前後端位於不同 domain 時，瀏覽器會把 API 呼叫視為 cross-origin。FastAPI 在 `backend/app/main.py` 設有 `CORSMiddleware`；目前 `allow_origins` 為 `*`，前端 fetch 未使用 cookie 或 credentials。若將 API 限制為正式前端網域，需將 `allow_origins` 改為實際前端 origin，並為 Preview 網域另行設定允許來源；更新 Backend 後重新部署。
+
+### Git 部署與 Preview
+
+兩個 Vercel Projects 可連到相同 repository/branch，但各自只以其 Root Directory 建置。Production Branch 的新 commit 會分別觸發前後端部署；其他 branch 或 Pull Request 通常會產生 Preview Deployment。確認 Preview 前後端互通時，Frontend 的 Preview scope `VITE_API_BASE_URL` 必須指向可供預覽環境使用的 Backend domain，否則 Preview 頁面會連到 Production API 或使用 fallback 資料。部署後可在 Vercel Deployment 頁查看 build log、runtime log 與 domain alias。
+
+### Serverless 執行限制
+
+Vercel Python Function 是按請求執行的 Serverless runtime。程序記憶體中的 TTL cache 可能在 cold start 後清空，也不會在不同執行個體間同步。`backend/app/services/database_service.py` 偵測到 `VERCEL` 時將 SQLite 放在 `/tmp/environment.db`；`/tmp` 只供暫存，不是持久化儲存，資料可能隨執行個體回收而消失，也無法保證多個執行個體讀到同一份歷史。後端收藏 JSON 也不適合作為 Vercel 上的持久資料來源。地圖收藏由前端各使用者的 `localStorage` 保存，與後端收藏 API 分開。
+
+### 部署後檢查
+
+1. 開啟 `https://<backend-domain>/api/health`，確認 API Function 回應 `status: online`。這只代表應用程式有啟動，不代表 CWA 金鑰有效。
+2. 開啟 `https://<backend-domain>/api/weather/overview`，確認回應的 `success` 與 `data`；若失敗，先檢查 Backend Runtime Logs 與 `CWA_API_KEY` scope。
+3. 在瀏覽器開啟 Frontend，使用 Developer Tools → Network 確認請求送到 `https://<backend-domain>/api/...` 並回傳成功。若 Network 指向前端 domain `/api/...`，檢查 Frontend 的 `VITE_API_BASE_URL` 並重新部署。
+4. 若 API 回應可用但網站顯示示範資料，檢查瀏覽器 Console／Network、CORS response headers 與 Frontend build 時採用的 API origin。前端 API 請求逾時或失敗時會使用內建 fallback 資料，因此 UI 顯示本身不能證明 Backend 已取得即時 CWA 資料。
 
 ## API
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Thermometer, Wind, CloudRain, Droplets } from 'lucide-react';
-import type { WeatherLayer } from './WindyMap';
+import type { WeatherLayer } from '../types/map';
 
 interface WindyLayerPickerProps {
   activeLayer: WeatherLayer;

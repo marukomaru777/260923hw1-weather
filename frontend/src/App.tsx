@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { WindyMap, type WeatherLayer } from './components/WindyMap';
+import { WindyMap } from './components/WindyMap';
 import { WindyTopBar } from './components/WindyTopBar';
 import { WindyAlertsWidget } from './components/WindyAlertsWidget';
 import { WindyLayerPicker } from './components/WindyLayerPicker';
@@ -13,6 +13,8 @@ import {
 } from './services/api';
 import { getLocalFavorites, toggleLocalFavorite } from './services/favoritesStorage';
 import type { CurrentWeather, CountyOverview, Station, WeatherAlert } from './types/weather';
+import type { AppTheme, WeatherLayer } from './types/map';
+import { findTaiwanAdministrativeArea } from './services/reverseGeocode';
 import { Loader2 } from 'lucide-react';
 
 export const ALL_COUNTIES = [
@@ -23,6 +25,14 @@ export const ALL_COUNTIES = [
 
 export const App: React.FC = () => {
   const [currentCity, setCurrentCity] = useState<string>('臺北市');
+  const [selectedAreaFocusKey, setSelectedAreaFocusKey] = useState(0);
+  const [theme, setTheme] = useState<AppTheme>(() =>
+    localStorage.getItem('taiwan-weather-theme') === 'light' ? 'light' : 'dark'
+  );
+  const [userPosition, setUserPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [returnToTaiwanKey, setReturnToTaiwanKey] = useState(0);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState('');
   const [currentTown, setCurrentTown] = useState<string>('');
   const [focusedFavorite, setFocusedFavorite] = useState<string>('');
   const [activeLayer, setActiveLayer] = useState<WeatherLayer>('temp');
@@ -38,6 +48,10 @@ export const App: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCityLoading, setIsCityLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    localStorage.setItem('taiwan-weather-theme', theme);
+  }, [theme]);
 
   // Load Global Data
   const loadGlobalData = useCallback(async () => {
@@ -97,13 +111,54 @@ export const App: React.FC = () => {
     setCurrentCity(matched || normalized);
     setCurrentTown('');
   };
+  const handleSelectCityFromDropdown = (city: string) => {
+    setFocusedFavorite('');
+    handleSelectCity(city);
+    setSelectedAreaFocusKey(key => key + 1);
+  };
   const handleSelectFavorite = (location: string) => {
     setFocusedFavorite(location);
-    handleSelectCity(location);
   };
   const handleSelectSavedLocation = (location: string) => {
     if (favorites.includes(location)) handleSelectFavorite(location);
     else handleSelectCity(location);
+  };
+  const handleLocate = () => {
+    if (!navigator.geolocation) {
+      setLocationMessage('此瀏覽器不支援位置服務');
+      return;
+    }
+
+    setIsLocating(true);
+    setLocationMessage('正在取得目前位置…');
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const position = { latitude: coords.latitude, longitude: coords.longitude };
+      setUserPosition(position);
+      setFocusedFavorite('');
+      setOnlyFavorites(false);
+      try {
+        const area = await findTaiwanAdministrativeArea(position.latitude, position.longitude);
+        if (!area) {
+          setLocationMessage('已定位，但目前位置不在台灣縣市範圍內');
+          return;
+        }
+        setCurrentCity(area.county);
+        setCurrentTown('');
+        setLocationMessage(`所在縣市：${area.county}`);
+      } catch {
+        setLocationMessage('已取得位置，但無法載入縣市界線資料');
+      } finally {
+        setIsLocating(false);
+      }
+    }, error => {
+      const message = error.code === error.PERMISSION_DENIED
+        ? '請允許瀏覽器存取位置以使用定位'
+        : error.code === error.TIMEOUT
+          ? '取得位置逾時，請再試一次'
+          : '目前無法取得位置，請確認裝置定位已開啟';
+      setLocationMessage(message);
+      setIsLocating(false);
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
   };
   const selectedStation = currentTown
     ? stations.find(station => station.county === currentCity && station.town === currentTown && station.temperature !== null)
@@ -126,7 +181,11 @@ export const App: React.FC = () => {
   const availableTowns = Array.from(new Set(stations.filter(s => s.county === currentCity && s.town).map(s => s.town))).sort();
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+    <div
+      id="app-root"
+      data-theme={theme}
+      style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}
+    >
 
       {/* 1. Fullscreen Map Canvas Engine (Windy.com Style) */}
       <WindyMap
@@ -139,6 +198,10 @@ export const App: React.FC = () => {
         activeLayer={activeLayer}
         favorites={favorites}
         onlyFavorites={onlyFavorites}
+        theme={theme}
+        userPosition={userPosition}
+        returnToTaiwanKey={returnToTaiwanKey}
+        selectedAreaFocusKey={selectedAreaFocusKey}
       />
 
       {/* 2. Top-Left Floating Bar: Logo, City Dropdown, Favorite Filter, Quick City Pills */}
@@ -151,13 +214,27 @@ export const App: React.FC = () => {
         onClearFocus={() => {
           setFocusedFavorite('');
           setOnlyFavorites(false);
+          setReturnToTaiwanKey(key => key + 1);
         }}
         onSelectFavorite={handleSelectFavorite}
-        onSelectCity={handleSelectCity}
+        onSelectCity={handleSelectCityFromDropdown}
         counties={ALL_COUNTIES}
         favorites={favorites}
         onlyFavorites={onlyFavorites}
-        onToggleOnlyFavorites={() => setOnlyFavorites(!onlyFavorites)}
+        onToggleOnlyFavorites={() => {
+          setFocusedFavorite('');
+          setOnlyFavorites(value => !value);
+        }}
+        theme={theme}
+        onToggleTheme={() => setTheme(current => current === 'dark' ? 'light' : 'dark')}
+        onLocate={handleLocate}
+        onReturnToTaiwan={() => {
+          setFocusedFavorite('');
+          setOnlyFavorites(false);
+          setReturnToTaiwanKey(key => key + 1);
+        }}
+        isLocating={isLocating}
+        locationMessage={locationMessage}
         onRefresh={() => {
           loadGlobalData();
           loadCityWeather(currentCity);
