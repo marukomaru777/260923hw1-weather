@@ -5,6 +5,26 @@ import type { CountyOverview, Station } from '../types/weather';
 
 export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity';
 
+// Kaohsiung City includes the remote Dongsha and Nansha islands. Their large
+// administrative extent pulls a geometry-bounds center far out into the sea,
+// so anchor the overview label at the urban center on Taiwan proper.
+const COUNTY_LABEL_ANCHORS: Record<string, L.LatLngExpression> = {
+  '高雄市': [22.6273, 120.3014],
+  '金門縣': [24.4400, 118.3180]
+};
+
+const COUNTY_MAINLAND_RADII: Record<string, number> = {
+  '高雄市': 150_000,
+  '金門縣': 40_000
+};
+
+function isNearCountyLabelAnchor(feature: any, county: string) {
+  const anchor = COUNTY_LABEL_ANCHORS[county];
+  if (!anchor) return true;
+  const center = L.geoJSON(feature).getBounds().getCenter();
+  return center.distanceTo(L.latLng(anchor)) <= COUNTY_MAINLAND_RADII[county];
+}
+
 function getLayerValue(layer: WeatherLayer, station?: Station, overviewTemperature?: number | null) {
   if (layer === 'temp') {
     const value = overviewTemperature ?? station?.temperature;
@@ -182,6 +202,9 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const countyBounds = new Map<string, L.LatLngBounds>();
     visibleFeatures.forEach((feature: any) => {
       const county = feature.properties?.COUNTYNAME ?? '';
+      // Kaohsiung's administrative area also contains distant offshore
+      // islands. Keep those polygons out of the mainland overview extent.
+      if (!isNearCountyLabelAnchor(feature, county)) return;
       const bounds = L.geoJSON(feature).getBounds();
       const combined = countyBounds.get(county);
       if (combined) combined.extend(bounds);
@@ -191,7 +214,8 @@ export const WindyMap: React.FC<WindyMapProps> = ({
       const countyWeather = overviewList.find(item => item.city === county);
       const countyStation = stations.find(station => station.county === county);
       const value = getLayerValue(activeLayer, countyStation, countyWeather?.temperature);
-      L.marker(bounds.getCenter(), {
+      const labelPosition = COUNTY_LABEL_ANCHORS[county] ?? bounds.getCenter();
+      L.marker(labelPosition, {
         interactive: true,
         pane: 'tooltipPane',
         icon: L.divIcon({
@@ -215,7 +239,11 @@ export const WindyMap: React.FC<WindyMapProps> = ({
     const [county, town] = focusedFavorite.split('|');
     const bounds = L.latLngBounds([]);
     (data.features ?? []).forEach((feature: any) => {
-      if (feature.properties?.COUNTYNAME === county && (!town || feature.properties?.TOWNNAME === town)) {
+      if (
+        feature.properties?.COUNTYNAME === county &&
+        (!town || feature.properties?.TOWNNAME === town) &&
+        (town || isNearCountyLabelAnchor(feature, county))
+      ) {
         bounds.extend(L.geoJSON(feature).getBounds());
       }
     });
