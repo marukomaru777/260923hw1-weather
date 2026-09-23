@@ -10,12 +10,14 @@ export type WeatherLayer = 'temp' | 'wind' | 'rain' | 'humidity';
 // so anchor the overview label at the urban center on Taiwan proper.
 const COUNTY_LABEL_ANCHORS: Record<string, L.LatLngExpression> = {
   '高雄市': [22.6273, 120.3014],
-  '金門縣': [24.4400, 118.3180]
+  '金門縣': [24.4400, 118.3180],
+  '宜蘭縣': [24.7570, 121.7530]
 };
 
 const COUNTY_MAINLAND_RADII: Record<string, number> = {
   '高雄市': 150_000,
-  '金門縣': 40_000
+  '金門縣': 40_000,
+  '宜蘭縣': 70_000
 };
 
 function isNearCountyLabelAnchor(feature: any, county: string) {
